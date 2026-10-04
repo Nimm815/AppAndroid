@@ -1,0 +1,28 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/workspace_surface">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="72dp" android:gravity="center_vertical" android:paddingLeft="12dp" android:paddingRight="12dp">
+  <Button android:id="@+id/filterTasks" android:textColor="#222222" android:layout_width="56dp" android:layout_height="56dp" android:text="☰" android:textSize="24sp" android:contentDescription="Lọc công việc" android:backgroundTint="#E8E8E8" />
+  <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Hôm nay" android:textSize="24sp" android:textStyle="bold" android:textColor="@color/workspace_text" android:gravity="center" />
+  <Button android:id="@+id/showStats" android:textColor="#222222" android:layout_width="56dp" android:layout_height="56dp" android:text="▥" android:textSize="24sp" android:contentDescription="Thống kê" android:backgroundTint="#E8E8E8" />
+ </LinearLayout>
+ <TextView android:id="@+id/currentDate" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:padding="6dp" android:textColor="@color/workspace_accent" android:textSize="16sp" />
+ <LinearLayout android:id="@+id/taskWeek" android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="60dp" android:paddingLeft="8dp" android:paddingRight="8dp" />
+ <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:paddingLeft="12dp" android:paddingRight="12dp">
+  <Button android:id="@+id/openReport" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/habit_report" android:textAllCaps="false" />
+  <Button android:id="@+id/openTimer" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/timer" android:textAllCaps="false" />
+ </LinearLayout>
+ <EditText android:id="@+id/searchTasks" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginStart="12dp" android:layout_marginEnd="12dp" android:layout_marginBottom="12dp" android:hint="Tìm công việc…" android:inputType="text" android:singleLine="true" android:textSize="16sp" />
+ <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:background="@color/workspace_canvas">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+   <TextView android:id="@+id/listHeading" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp" android:text="Danh sách việc cần làm · Tất cả" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/workspace_text" />
+   <TextView android:id="@+id/taskSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingLeft="16dp" android:paddingRight="16dp" android:paddingBottom="12dp" android:textSize="14sp" android:textColor="@color/workspace_muted" />
+   <FrameLayout android:id="@+id/taskListContainer" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/taskList" android:layout_width="match_parent" android:layout_height="match_parent" android:paddingLeft="8dp" android:paddingRight="8dp" android:paddingBottom="96dp" android:clipToPadding="false" />
+    <TextView android:id="@+id/emptyMessage" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:padding="24dp" android:text="@string/empty_message" android:textSize="18sp" android:textColor="@color/workspace_muted" />
+   </FrameLayout>
+   <ScrollView android:id="@+id/habitScroll" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:visibility="gone">
+    <LinearLayout android:id="@+id/habitEntries" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp" android:paddingBottom="96dp" />
+   </ScrollView>
+  </LinearLayout>
+  <TextView android:id="@+id/addTask" android:layout_width="64dp" android:layout_height="64dp" android:layout_gravity="bottom|end" android:layout_margin="16dp" android:background="@drawable/add_circle" android:text="+" android:textSize="40sp" android:textColor="#FFFFFF" android:gravity="center" android:contentDescription="@string/add_task" android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackgroundBorderless" android:elevation="4dp" />
+ </FrameLayout>
+</LinearLayout>

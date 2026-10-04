@@ -1,0 +1,7 @@
+<resources>
+ <color name="workspace_surface">#252525</color>
+ <color name="workspace_canvas">#181818</color>
+ <color name="workspace_text">#F2F2F2</color>
+ <color name="workspace_muted">#CCCCCC</color>
+ <color name="workspace_accent">#8AD5C7</color>
+</resources>

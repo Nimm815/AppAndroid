@@ -1,0 +1,1 @@
+<resources><style name="Theme.TaskManager" parent="Theme.TaskManagerBase"><item name="android:windowLightNavigationBar">@bool/light_system_bars</item><item name="android:navigationBarColor">@color/workspace_surface</item></style></resources>

@@ -1,0 +1,14 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="?android:attr/colorBackground">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+  <TextView style="@style/ScreenTitle" android:text="@string/manage_lists" />
+  <Button android:id="@+id/listAllTasks" style="@style/WideButton" android:text="@string/list_all_tasks" />
+  <Button android:id="@+id/listPending" style="@style/WideButton" android:text="@string/list_pending" />
+  <Button android:id="@+id/listCompleted" style="@style/WideButton" android:text="@string/list_completed" />
+  <Button android:id="@+id/listHabits" style="@style/WideButton" android:text="@string/list_habits" />
+  <TextView style="@style/PanelText" android:text="@string/personal_lists" android:textStyle="bold" />
+  <LinearLayout android:id="@+id/customLists" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+  <Button android:id="@+id/createList" style="@style/WideButton" android:text="@string/create_list" />
+  <Button android:id="@+id/createFilter" style="@style/WideButton" android:text="@string/create_filter" />
+  <Button android:id="@+id/closeLists" style="@style/WideButton" android:text="@string/close" />
+ </LinearLayout>
+</ScrollView>
