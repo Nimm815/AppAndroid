@@ -1,26 +1,33 @@
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
- <TextView style="@style/ScreenTitle" android:text="@string/timer" />
- <RadioGroup android:id="@+id/timerModes" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-  <RadioButton android:id="@+id/stopwatchMode" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="@string/stopwatch" android:checked="true" />
-  <RadioButton android:id="@+id/countdownMode" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="@string/countdown" />
- </RadioGroup>
- <Space android:layout_width="match_parent" android:layout_height="24dp" />
- <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/focus" android:textSize="20sp" android:textStyle="bold" />
- <Spinner android:id="@+id/focusHabit" android:layout_width="match_parent" android:layout_height="56dp" />
- <TextView android:id="@+id/countdownLabels" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/time_units" android:visibility="gone" />
- <LinearLayout android:id="@+id/countdownInputs" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:visibility="gone">
-  <NumberPicker android:id="@+id/timerHours" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-  <NumberPicker android:id="@+id/timerMinutes" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-  <NumberPicker android:id="@+id/timerSeconds" android:layout_width="wrap_content" android:layout_height="wrap_content" />
- </LinearLayout>
- <TextView android:id="@+id/timerDisplay" android:layout_width="match_parent" android:layout_height="96dp" android:gravity="center" android:background="@drawable/timer_panel" android:textColor="#FFFFFF" android:textSize="36sp" android:text="00:00:00" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" />
- <LinearLayout android:layout_width="match_parent" android:layout_height="56dp">
-  <Button android:id="@+id/timerReset" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/reset" android:textAllCaps="false" />
-  <Button android:id="@+id/timerStart" android:backgroundTint="#242424" android:textColor="#FFFFFF" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/start" android:textAllCaps="false" />
- </LinearLayout>
- <Button android:id="@+id/timerLap" style="@style/WideButton" android:text="@string/lap" />
- <TextView android:id="@+id/timerLaps" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" />
- <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="12dp" android:text="@string/timer_limit" android:textSize="13sp" />
- <Space android:layout_width="match_parent" android:layout_height="24dp" />
- <Button android:id="@+id/closeTimer" style="@style/WideButton" android:text="@string/close" />
-</LinearLayout></ScrollView>
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+    <FrameLayout android:layout_width="match_parent" android:layout_height="76dp" xmlns:android="http://schemas.android.com/apk/res/android">
+        <TextView style="@style/ScreenTitle" android:text="@string/timer" />
+        <ImageButton android:id="@+id/closeTimer" style="@style/IconButton" android:src="@drawable/ic_close" android:contentDescription="@string/close" android:layout_gravity="start|center_vertical" />
+    </FrameLayout>
+    <RadioGroup android:id="@+id/timerModes" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" xmlns:android="http://schemas.android.com/apk/res/android">
+        <RadioButton android:id="@+id/stopwatchMode" style="@style/TimerTab" android:text="@string/stopwatch" android:checked="true" />
+        <RadioButton android:id="@+id/countdownMode" style="@style/TimerTab" android:text="@string/countdown" />
+    </RadioGroup>
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:padding="24dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/focus" android:textSize="20sp" android:textStyle="bold" xmlns:android="http://schemas.android.com/apk/res/android" />
+            <Spinner android:id="@+id/focusHabit" android:background="@drawable/control_gray" android:padding="10dp" android:layout_gravity="center_horizontal" android:layout_width="180dp" android:layout_height="56dp" xmlns:android="http://schemas.android.com/apk/res/android" />
+            <TextView android:id="@+id/countdownLabels" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/time_units" android:visibility="gone" xmlns:android="http://schemas.android.com/apk/res/android" />
+            <LinearLayout android:id="@+id/countdownInputs" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:visibility="gone" xmlns:android="http://schemas.android.com/apk/res/android">
+                <NumberPicker android:id="@+id/timerHours" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                <NumberPicker android:id="@+id/timerMinutes" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                <NumberPicker android:id="@+id/timerSeconds" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            </LinearLayout>
+            <TextView android:id="@+id/timerDisplay" android:layout_gravity="center_horizontal" android:layout_width="200dp" android:layout_height="72dp" android:gravity="center" android:background="@drawable/timer_panel" android:textColor="#FFFFFF" android:textSize="32sp" android:text="00:00:00" android:layout_marginTop="16dp" android:layout_marginBottom="16dp" xmlns:android="http://schemas.android.com/apk/res/android" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" xmlns:android="http://schemas.android.com/apk/res/android">
+                <Button style="@style/FlatButton" android:id="@+id/timerReset" android:layout_marginEnd="8dp" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/reset" android:textAllCaps="false" />
+                <Button style="@style/BlackButton" android:id="@+id/timerStart" android:backgroundTint="#242424" android:textColor="#FFFFFF" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/start" android:textAllCaps="false" />
+            </LinearLayout>
+            <Button android:id="@+id/timerLap" style="@style/WideButton" android:text="@string/lap" xmlns:android="http://schemas.android.com/apk/res/android" />
+            <TextView android:id="@+id/timerLaps" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" xmlns:android="http://schemas.android.com/apk/res/android" />
+        </LinearLayout>
+    </ScrollView>
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
+    <include layout="@layout/bottom_navigation" />
+</LinearLayout>

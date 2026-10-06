@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/task_card" android:padding="20dp" android:layout_marginBottom="14dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+        <TextView android:id="@+id/noteMeta" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textSize="12sp" android:textColor="@color/workspace_muted" />
+        <ImageButton android:id="@+id/noteBookmark" style="@style/IconButton" app:srcCompat="@drawable/ic_bookmark" android:background="@drawable/control_soft" android:contentDescription="Đánh dấu bài nhật ký" />
+    </LinearLayout>
+    <TextView android:id="@+id/noteTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="22sp" android:textStyle="bold" android:textColor="@color/workspace_text" android:layout_marginTop="6dp" android:maxLines="2" android:ellipsize="end" />
+    <TextView android:id="@+id/notePreview" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="16sp" android:textColor="@color/workspace_muted" android:lineSpacingExtra="6dp" android:layout_marginTop="10dp" android:maxLines="3" android:ellipsize="end" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:layout_marginTop="16dp">
+        <Button android:id="@+id/noteRead" style="@style/BlackButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="48dp" android:text="Đọc nhật ký" />
+        <ImageButton android:id="@+id/noteEdit" style="@style/IconButton" app:srcCompat="@drawable/ic_edit" android:layout_marginStart="12dp" android:contentDescription="Sửa bài nhật ký" android:background="@drawable/control_soft" />
+    </LinearLayout>
+</LinearLayout>

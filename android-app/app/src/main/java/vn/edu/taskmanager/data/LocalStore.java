@@ -16,6 +16,7 @@ import java.util.UUID;
 public class LocalStore {
     public static class Entry {
         public String id, type, title, body, date, time, created;
+        public String label = "";
         public boolean bookmarked;
         public List<String> days = new ArrayList<>();
     }
@@ -38,6 +39,7 @@ public class LocalStore {
                 entry.type = value.getString("type");
                 entry.title = value.getString("title");
                 entry.body = value.optString("body");
+                entry.label = value.optString("label");
                 entry.date = value.optString("date");
                 entry.time = value.optString("time", "09:00");
                 entry.created = value.optString("created", entry.date);
@@ -81,7 +83,7 @@ public class LocalStore {
             for (Entry entry : all) {
                 JSONObject value = new JSONObject();
                 value.put("id", entry.id).put("type", entry.type).put("title", entry.title)
-                        .put("body", entry.body).put("date", entry.date).put("time", entry.time)
+                        .put("body", entry.body).put("label", entry.label).put("date", entry.date).put("time", entry.time)
                         .put("created", entry.created).put("bookmarked", entry.bookmarked)
                         .put("days", new JSONArray(entry.days));
                 array.put(value);

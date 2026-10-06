@@ -15,6 +15,7 @@ import java.util.Locale;
 
 public class EntryEditorDialog extends DialogFragment {
     private EditText title, body;
+    private EditText label;
     private String date, time;
     public static EntryEditorDialog create(String type, String id, String date) {
         EntryEditorDialog dialog = new EntryEditorDialog();
@@ -30,6 +31,21 @@ public class EntryEditorDialog extends DialogFragment {
         LocalStore.Entry old = id == null ? null : store.find(id);
         View view = getLayoutInflater().inflate(R.layout.dialog_entry, null);
         title = view.findViewById(R.id.entryTitle); body = view.findViewById(R.id.entryBody);
+        if ("note".equals(type)) {
+            title.setHint("Tiêu đề bài nhật ký");
+            body.setHint("Hôm nay của bạn thế nào?\n\nViết những điều bạn muốn lưu lại…");
+            body.setTypeface(android.graphics.Typeface.create("serif", android.graphics.Typeface.NORMAL));
+            body.setTextSize(18);
+            float density = getResources().getDisplayMetrics().density;
+            body.setLineSpacing(8 * density, 1.1f);
+            body.setMinHeight((int) (260 * density));
+            body.setPadding((int) (12 * density), (int) (16 * density), (int) (12 * density), (int) (16 * density));
+            body.setBackgroundResource(R.drawable.control_soft);
+            labelHint(view);
+        }
+        label = view.findViewById(R.id.entryLabel);
+        label.setText(state != null ? state.getString("label", "") : old == null ? "" : old.label);
+        label.setVisibility("note".equals(type) ? View.VISIBLE : View.GONE);
         title.setText(state != null ? state.getString("title") : old == null ? "" : old.title);
         body.setText(state != null ? state.getString("body") : old == null ? "" : old.body);
         date = state != null ? state.getString("date") : old == null ? requireArguments().getString("date") : old.date;
@@ -54,14 +70,15 @@ public class EntryEditorDialog extends DialogFragment {
                 timeButton.setText(time);
             }, Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), true).show();
         });
-        String heading = "habit".equals(type) ? "Thói quen hằng ngày" : event ? "Sự kiện lịch" : "Ghi chú nhật ký";
+        String heading = "habit".equals(type) ? "Thói quen hằng ngày" : event ? "Sự kiện lịch" : old == null ? "Viết nhật ký" : "Sửa bài nhật ký";
         AlertDialog dialog = new AlertDialog.Builder(requireContext()).setTitle(heading).setView(view)
                 .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.save, null).create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String name = title.getText().toString().trim();
-            if (name.isEmpty()) { title.setError(getString(R.string.name_required)); return; }
+            if (name.isEmpty()) { title.setError("Vui lòng nhập tiêu đề"); return; }
             LocalStore.Entry entry = old == null ? new LocalStore.Entry() : old;
             entry.type = type; entry.title = name; entry.body = body.getText().toString().trim();
+            entry.label = label.getText().toString().trim();
             entry.date = date; entry.time = time;
             store.save(entry);
             ((MainActivity) requireActivity()).entrySaved(entry);
@@ -69,9 +86,13 @@ public class EntryEditorDialog extends DialogFragment {
         }));
         return dialog;
     }
+    private void labelHint(View view) {
+        ((EditText) view.findViewById(R.id.entryLabel)).setHint("Nhãn · ví dụ: Học tập, Cuộc sống");
+    }
     @Override public void onSaveInstanceState(@NonNull Bundle out) {
         super.onSaveInstanceState(out);
         out.putString("title", title.getText().toString()); out.putString("body", body.getText().toString());
         out.putString("date", date); out.putString("time", time);
+        out.putString("label", label.getText().toString());
     }
 }

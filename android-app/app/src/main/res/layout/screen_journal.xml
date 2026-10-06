@@ -1,13 +1,22 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
- <TextView style="@style/ScreenTitle" android:text="@string/journal" />
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingLeft="12dp" android:paddingRight="12dp">
-  <EditText android:id="@+id/journalSearch" android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1" android:hint="@string/search_notes" android:inputType="text" android:singleLine="true" />
-  <Button android:id="@+id/journalFilter" android:layout_width="wrap_content" android:layout_height="52dp" android:text="@string/all_notes" android:textAllCaps="false" />
- </LinearLayout>
- <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-  <ScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
-   <LinearLayout android:id="@+id/journalEntries" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp" android:paddingBottom="96dp" />
-  </ScrollView>
-  <TextView android:id="@+id/addNote" style="@style/AddButton" />
- </FrameLayout>
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+    <FrameLayout android:layout_width="match_parent" android:layout_height="76dp">
+        <TextView style="@style/ScreenTitle" android:text="@string/journal" />
+        <ImageButton android:id="@+id/journalBookmark" style="@style/IconButton" app:srcCompat="@drawable/ic_bookmark" android:contentDescription="Ghi chú đã đánh dấu" android:layout_gravity="start|center_vertical" android:layout_marginStart="12dp" />
+        <ImageButton android:id="@+id/journalMore" style="@style/IconButton" app:srcCompat="@drawable/ic_more" android:contentDescription="Tùy chọn nhật ký" android:layout_gravity="end|center_vertical" android:layout_marginEnd="12dp" />
+    </FrameLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:paddingLeft="14dp" android:paddingRight="14dp" android:gravity="center_vertical">
+        <ImageButton android:id="@+id/journalSearchToggle" style="@style/IconButton" app:srcCompat="@drawable/ic_search" android:contentDescription="Tìm ghi chú" android:layout_width="50dp" android:layout_height="48dp" android:background="@drawable/control_soft" />
+        <Button android:id="@+id/journalFilter" style="@style/FlatButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="12dp" android:text="Tất cả nhãn  ﹀" />
+        <Button android:id="@+id/journalItems" style="@style/FlatButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="6dp" android:text="Tất cả mục  ﹀" />
+    </LinearLayout>
+    <EditText android:id="@+id/journalSearch" android:layout_width="match_parent" android:layout_height="48dp" android:visibility="gone" android:layout_marginStart="14dp" android:layout_marginEnd="14dp" android:hint="@string/search_notes" android:inputType="text" android:singleLine="true" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingStart="20dp" android:paddingEnd="20dp" android:paddingTop="12dp" android:paddingBottom="14dp" android:text="Mỗi ngày, một trang của bạn" android:textSize="14sp" android:textColor="@color/workspace_muted" />
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:background="@color/workspace_page">
+        <ScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
+            <LinearLayout android:id="@+id/journalEntries" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp" android:paddingBottom="80dp" />
+        </ScrollView>
+        <TextView android:id="@+id/addNote" style="@style/AddButton" />
+    </FrameLayout>
 </LinearLayout>

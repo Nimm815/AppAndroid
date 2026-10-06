@@ -36,6 +36,7 @@ public class TimerDialog extends DialogFragment {
     @NonNull @Override public Dialog onCreateDialog(Bundle state) {
         model = new ViewModelProvider(requireActivity()).get(TimerState.class);
         view = getLayoutInflater().inflate(R.layout.dialog_timer, null);
+        ReferenceUi.bindNavigation(view, this);
         NumberPicker hours = view.findViewById(R.id.timerHours), minutes = view.findViewById(R.id.timerMinutes), seconds = view.findViewById(R.id.timerSeconds);
         hours.setMinValue(0); hours.setMaxValue(23);
         minutes.setMinValue(0); minutes.setMaxValue(59); seconds.setMinValue(0); seconds.setMaxValue(59);
@@ -52,12 +53,20 @@ public class TimerDialog extends DialogFragment {
         });
         Spinner focus = view.findViewById(R.id.focusHabit);
         List<LocalStore.Entry> habits = new LocalStore(requireContext()).entries("habit");
-        List<String> names = new ArrayList<>(); names.add("Không gắn thói quen");
+        List<String> names = new ArrayList<>(); names.add("Không có Thói quen");
         int selected = 0;
         for (LocalStore.Entry habit : habits) {
             names.add(habit.title); if (habit.id.equals(model.habitId)) selected = names.size() - 1;
         }
-        focus.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, names));
+        ArrayAdapter<String> choices = new ArrayAdapter<String>(requireContext(), android.R.layout.simple_spinner_dropdown_item, names) {
+            @NonNull @Override public View getView(int position, View recycled, @NonNull ViewGroup parent) {
+                TextView label = (TextView) super.getView(position, recycled, parent);
+                label.setTextSize(16); label.setGravity(android.view.Gravity.CENTER);
+                label.setPadding(0, 0, 0, 0);
+                return label;
+            }
+        };
+        focus.setAdapter(choices);
         focus.setSelection(selected);
         focus.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> parent, View item, int position, long id) {
@@ -71,7 +80,10 @@ public class TimerDialog extends DialogFragment {
             else { if (model.countdown && model.display() == 0) model.reset(); model.start(); }
             render();
         });
-        view.findViewById(R.id.timerReset).setOnClickListener(v -> { model.reset(); render(); });
+        view.findViewById(R.id.timerReset).setOnClickListener(v -> {
+            if (!model.countdown && model.running) model.laps.add(model.elapsedNow()); else model.reset();
+            render();
+        });
         view.findViewById(R.id.timerLap).setOnClickListener(v -> {
             if (model.running) { model.laps.add(model.elapsedNow()); render(); }
         });
@@ -84,9 +96,11 @@ public class TimerDialog extends DialogFragment {
     private void render() {
         ((TextView) view.findViewById(R.id.timerDisplay)).setText(TimerState.format(model.display()));
         ((Button) view.findViewById(R.id.timerStart)).setText(model.running ? R.string.pause : R.string.start);
+        ((Button) view.findViewById(R.id.timerReset)).setText(!model.countdown && model.running ? "Vòng" : model.countdown ? "Dừng" : "Đặt lại");
         view.findViewById(R.id.countdownInputs).setVisibility(model.countdown ? View.VISIBLE : View.GONE);
         view.findViewById(R.id.countdownLabels).setVisibility(model.countdown ? View.VISIBLE : View.GONE);
-        view.findViewById(R.id.timerLap).setVisibility(model.countdown ? View.GONE : View.VISIBLE);
+        view.findViewById(R.id.timerLap).setVisibility(View.GONE);
+        view.findViewById(R.id.timerDisplay).setVisibility(model.countdown && !model.running && model.elapsed == 0 ? View.GONE : View.VISIBLE);
         for (int id : new int[]{R.id.timerHours, R.id.timerMinutes, R.id.timerSeconds, R.id.stopwatchMode, R.id.countdownMode, R.id.focusHabit})
             view.findViewById(id).setEnabled(!model.running);
         StringBuilder laps = new StringBuilder();

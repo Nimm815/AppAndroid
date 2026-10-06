@@ -26,7 +26,7 @@ public class TaskAdapter extends ListAdapter<Task, TaskAdapter.Holder> {
                 return a.id == b.id;
             }
             @Override public boolean areContentsTheSame(@NonNull Task a, @NonNull Task b) {
-                return a.title.equals(b.title) && a.completed == b.completed;
+                return a.title.equals(b.title) && a.completed == b.completed && a.scheduledDate.equals(b.scheduledDate) && a.priority == b.priority;
             }
         });
         this.listener = listener;
@@ -40,6 +40,11 @@ public class TaskAdapter extends ListAdapter<Task, TaskAdapter.Holder> {
     @Override public void onBindViewHolder(@NonNull Holder holder, int position) {
         Task task = getItem(position);
         holder.title.setText(task.title);
+        holder.priorityStripe.setVisibility(task.scheduledDate.isEmpty() ? View.INVISIBLE : View.VISIBLE);
+        holder.priorityStripe.setBackgroundColor(TaskPriority.color(task.priority));
+        holder.date.setText((TaskSchedule.overdue(task, vn.edu.taskmanager.data.LocalStore.today()) ? "Quá hạn · " : "")
+                + MainActivity.displayDate(task.scheduledDate)
+                + (task.scheduledDate.isEmpty() ? "" : " · " + TaskPriority.label(task.priority)));
         holder.title.setPaintFlags(task.completed
                 ? holder.title.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG
                 : holder.title.getPaintFlags() & ~Paint.STRIKE_THRU_TEXT_FLAG);
@@ -49,16 +54,27 @@ public class TaskAdapter extends ListAdapter<Task, TaskAdapter.Holder> {
                 .getString(R.string.complete_task, task.title));
         holder.completed.setOnCheckedChangeListener((button, checked) ->
                 listener.onCompleted(task, checked));
-        holder.itemView.findViewById(R.id.editTask).setOnClickListener(v -> listener.onEdit(task));
-        holder.itemView.findViewById(R.id.deleteTask).setOnClickListener(v -> listener.onDelete(task));
+        holder.itemView.setOnClickListener(v -> {
+            android.widget.PopupMenu menu = new android.widget.PopupMenu(v.getContext(), v);
+            menu.getMenu().add(0, 1, 0, R.string.edit);
+            menu.getMenu().add(0, 2, 1, R.string.delete);
+            menu.setOnMenuItemClickListener(item -> {
+                if (item.getItemId() == 1) listener.onEdit(task); else listener.onDelete(task);
+                return true;
+            });
+            menu.show();
+        });
     }
 
     static class Holder extends RecyclerView.ViewHolder {
-        final TextView title;
+        final TextView title, date;
         final CheckBox completed;
+        final View priorityStripe;
         Holder(View view) {
             super(view);
             title = view.findViewById(R.id.taskTitle);
+            priorityStripe = view.findViewById(R.id.taskPriorityStripe);
+            date = view.findViewById(R.id.taskDateLabel);
             completed = view.findViewById(R.id.taskCompleted);
         }
     }

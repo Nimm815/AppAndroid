@@ -16,6 +16,10 @@ public interface TaskDao {
 
     @Query("UPDATE tasks SET title = :title WHERE id = :id")
     void rename(long id, String title);
+    @Query("UPDATE tasks SET title = :title, scheduledDate = :date WHERE id = :id")
+    void edit(long id, String title, String date);
+    @Query("UPDATE tasks SET title = :title, scheduledDate = :date, priority = :priority WHERE id = :id")
+    void editWithPriority(long id, String title, String date, int priority);
 
     @Query("UPDATE tasks SET completed = :completed WHERE id = :id")
     void setCompleted(long id, boolean completed);

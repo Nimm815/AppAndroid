@@ -1,20 +1,26 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp">
- <TextView style="@style/ScreenTitle" android:text="@string/habit_report" />
- <RadioGroup android:id="@+id/reportModes" android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal">
-  <RadioButton android:id="@+id/reportWeek" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/week" />
-  <RadioButton android:id="@+id/reportMonth" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/month" android:checked="true" />
-  <RadioButton android:id="@+id/reportYear" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/year" />
- </RadioGroup>
- <LinearLayout android:layout_width="match_parent" android:layout_height="56dp">
-  <Button android:id="@+id/reportPrevious" android:layout_width="48dp" android:layout_height="match_parent" android:text="‹" android:textSize="26sp" android:padding="0dp" android:contentDescription="@string/previous_period" />
-  <TextView android:id="@+id/reportPeriod" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textStyle="bold" />
-  <Button android:id="@+id/reportToday" android:textSize="12sp" android:padding="0dp" android:maxLines="1" android:layout_width="80dp" android:layout_height="match_parent" android:text="@string/today" android:textAllCaps="false" />
-  <Button android:id="@+id/reportNext" android:layout_width="48dp" android:layout_height="match_parent" android:text="›" android:textSize="26sp" android:padding="0dp" android:contentDescription="@string/next_period" />
- </LinearLayout>
- <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-  <LinearLayout android:id="@+id/reportEntries" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
- </ScrollView>
- <Button android:id="@+id/saveReportImage" style="@style/WideButton" android:text="@string/save_report_image" />
- <Button android:id="@+id/shareReport" android:backgroundTint="#7874B7" android:textColor="#FFFFFF" style="@style/WideButton" android:text="@string/share_report" />
- <Button android:id="@+id/closeReport" style="@style/WideButton" android:text="@string/close" />
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+    <FrameLayout android:layout_width="match_parent" android:layout_height="76dp">
+        <TextView style="@style/ScreenTitle" android:text="@string/habit_report" />
+        <ImageButton android:id="@+id/closeReport" style="@style/IconButton" android:src="@drawable/ic_close" android:contentDescription="@string/close" android:layout_gravity="start|center_vertical" />
+    </FrameLayout>
+    <RadioGroup android:id="@+id/reportModes" android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal" android:paddingStart="24dp" android:paddingEnd="24dp">
+        <RadioButton android:id="@+id/reportWeek" style="@style/ReportTab" android:text="@string/week" />
+        <RadioButton android:id="@+id/reportMonth" style="@style/ReportTab" android:text="@string/month" android:checked="true" />
+        <RadioButton android:id="@+id/reportYear" style="@style/ReportTab" android:text="@string/year" />
+    </RadioGroup>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:paddingStart="28dp" android:paddingEnd="28dp">
+        <TextView android:background="@drawable/control_gray" android:layout_marginStart="4dp" android:layout_marginEnd="4dp" android:id="@+id/reportPeriod" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textStyle="bold" android:textColor="@color/workspace_text" android:textSize="15sp" />
+        <Button android:id="@+id/reportPrevious" android:layout_width="48dp" android:layout_height="match_parent" android:text="‹" android:textSize="26sp" android:padding="0dp" android:contentDescription="@string/previous_period" />
+        <Button android:id="@+id/reportToday" android:textSize="14sp" android:padding="0dp" android:maxLines="1" android:layout_width="80dp" android:layout_height="match_parent" android:text="@string/today" android:textAllCaps="false" style="@style/BlackButton" />
+        <Button android:id="@+id/reportNext" android:layout_width="48dp" android:layout_height="match_parent" android:text="›" android:textSize="26sp" android:padding="0dp" android:contentDescription="@string/next_period" />
+    </LinearLayout>
+    <ScrollView android:fillViewport="true" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <LinearLayout android:id="@+id/reportEntries" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+    </ScrollView>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="60dp">
+        <Button android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="0dp" android:layout_marginEnd="4dp" android:id="@+id/saveReportImage" style="@style/FlatButton" android:text="Lưu ảnh" android:layout_height="56dp" android:textSize="14sp" />
+        <Button android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="4dp" android:layout_marginEnd="0dp" android:id="@+id/shareReport" android:textColor="@color/workspace_text" style="@style/FlatButton" android:text="Chia sẻ báo cáo" android:layout_height="56dp" android:textSize="14sp" android:background="@drawable/control_purple" />
+    </LinearLayout>
+    <include layout="@layout/bottom_navigation" />
 </LinearLayout>

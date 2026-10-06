@@ -79,8 +79,21 @@ bốn tab Công việc, Nhật ký, Lịch, Cài đặt và nút thêm hình tr�
 | Bộ hẹn giờ | Bấm giờ, ghi vòng, đếm ngược giờ/phút/giây, bắt đầu/tạm dừng/đặt lại; chọn thói quen làm nội dung tập trung |
 | Báo cáo | Theo tuần/tháng/năm, chuyển kỳ, số ngày hoàn thành và tỷ lệ; lưu ảnh PNG qua trình chọn tệp Android; chia sẻ văn bản |
 
-Dải ngày trong tab Công việc dùng để chọn ngày ghi nhận **thói quen**. Công việc
-hiện chưa có hạn hoàn thành nên danh sách công việc vẫn hiển thị tất cả ngày.
+Dải ngày trong tab Công việc chọn **ngày thực hiện** và ngày ghi nhận thói quen.
+Chế độ xem theo ngày hiển thị cả công việc và thói quen trong hai nhóm riêng.
+Thêm công việc hoặc thói quen không tự chuyển sang chế độ chỉ xem một loại.
+Thói quen hằng ngày hiện từ ngày tạo trở đi, gồm cả ngày tương lai; mỗi ngày
+có dấu hoàn thành riêng và chỉ được ghi nhận từ ngày tạo đến hôm nay.
+Menu vẫn cho phép chọn riêng tất cả công việc hoặc tất cả thói quen.
+Thêm công việc mặc định dùng ngày đang chọn; form cho phép đổi ngày hoặc để chưa lên lịch.
+Form thêm/sửa công việc chỉ cho chọn ngày thực hiện từ hôm nay trở đi.
+Nếu thêm từ màn hình ngày quá khứ, form mặc định về hôm nay. Công việc cũ
+có ngày quá khứ vẫn được giữ; có thể sửa tên mà không đổi ngày cũ.
+Chuyển ngày chỉ hiện công việc có ngày thực hiện tương ứng, gồm cả việc đã hoàn thành.
+Màn hình Hôm nay có nhóm Quá hạn (ngày trước hôm nay, chưa hoàn thành) và Chưa lên lịch.
+Ngày tương lai không hiển thị nhóm quá hạn; không tự xóa hoặc chuyển ngày công việc.
+Menu ☰ > Tất cả công việc và các bộ lọc/danh sách xem dữ liệu của mọi ngày.
+Chạm ngày trên dải ngày để trở về chế độ xem theo ngày; ☰ > Hôm nay trở về ngày hiện tại.
 Lịch hiện hiển thị **sự kiện được tạo trong tab Lịch**, chưa tự lấy công việc.
 Thói quen hiện có một mục tiêu hoàn thành mỗi ngày, chưa có mục tiêu số lần/số phút
 hoặc lịch lặp tùy chọn. Báo cáo chỉ tính ngày từ ngày tạo đến hôm nay trong kỳ đã chọn.
@@ -92,9 +105,26 @@ Công việc vẫn nằm trong Room (`personal_tasks.db`). Ghi chú, thói quen,
 sự kiện, danh sách và bộ lọc được lưu bằng JSON trong SharedPreferences
 (`personal_workspace`) cho bản giao diện cục bộ có ít dữ liệu. Khi mở rộng và nối
 backend, cần chuyển phần dữ liệu này sang Room/API qua lớp quản lý dữ liệu.
-Không cần gỡ app để cập nhật và không thay schema công việc hiện có.
+Không cần gỡ app để cập nhật. Room nâng từ schema 1 lên 2 bằng `MIGRATION_1_2`:
+thêm `scheduledDate` và `createdAt`, giữ nguyên mã, tên và trạng thái công việc cũ.
+Công việc cũ để Chưa lên lịch; không đoán ngày tạo/ngày thực hiện của dữ liệu cũ.
 
 ### Vai trò các file mới
+
+Công việc có bốn nhóm mức độ quan trọng theo ma trận quan trọng/khẩn cấp:
+Làm ngay (xanh lá), Lên lịch (vàng), Ủy quyền (xanh ngọc), Loại bỏ (cam đỏ).
+Chọn nhóm trong form thêm/sửa; vạch màu ở viền trái chỉ hiện khi có ngày thực hiện.
+Tên nhóm cũng hiện cạnh ngày để không phải chỉ phân biệt bằng màu.
+“Ủy quyền” và “Loại bỏ” chỉ là nhãn phân loại, không tự giao việc hoặc xóa.
+Room schema 3 dùng MIGRATION_2_3 thêm priority, giữ mọi dữ liệu cũ;
+công việc cũ mặc định nhóm Lên lịch và có thể đổi trong form Sửa.
+
+Nhật ký hiển thị thẻ xem trước với ngày, nhãn, nút đánh dấu và sửa.
+Chạm thẻ hoặc “Đọc nhật ký” để mở trang đọc toàn màn hình, chữ serif,
+lề rộng và giãn dòng; giữ nguyên các dòng/đoạn đã nhập. Trang đọc có
+đánh dấu, sửa và xóa có xác nhận. Form viết nhật ký có vùng nhập lớn hơn.
+`item_journal.xml` định nghĩa thẻ; `dialog_journal_reader.xml` và
+`JournalReaderDialog.java` phụ trách trang đọc. Dữ liệu cũ vẫn dùng LocalStore.
 
 - `res/layout/activity_main.xml`: khung bốn tab và thanh điều hướng.
 - `res/layout/screen_*.xml`: giao diện từng tab.
@@ -108,6 +138,20 @@ Không cần gỡ app để cập nhật và không thay schema công việc hi�
 - `WorkspaceTest.java`: kiểm tra lưu/đọc lại dữ liệu, điều hướng, xoay máy và bản nháp.
 
 ### Kiểm tra bản giao diện
+
+Giao diện đã được chỉnh theo 9 ảnh HelloHabit: tiêu đề giữa màn hình, biểu tượng
+đen, dải ngày, hàng công việc gọn, ô hoàn thành bên phải, nút + đen và thanh
+điều hướng chỉ có biểu tượng. Menu danh sách mở từ cạnh trái; quản lý danh sách
+mở trong hộp riêng. Bộ hẹn giờ và báo cáo có thanh điều hướng phía dưới.
+
+Chạm tên công việc hoặc thói quen để sửa/xóa. Tìm công việc từ menu ☰.
+Nhật ký có nút tìm kiếm, bộ lọc nhãn và bộ lọc mục đã đánh dấu; nhãn được nhập
+trong form thêm/sửa ghi chú. `ReferenceUi.java` nối các nút điều hướng trong
+màn hình hẹn giờ/báo cáo về bốn tab chính; `res/values/design.xml` định nghĩa
+kiểu nút và `res/drawable/ic_*.xml` chứa biểu tượng.
+
+Đây là bản triển khai Java + XML theo các màn hình đã cung cấp, chưa phải toàn bộ
+sản phẩm HelloHabit. Các tính năng máy chủ vẫn theo phạm vi giai đoạn sau.
 
 1. Chạy app bằng Run trong Android Studio, không tạo lại dự án.
 2. Công việc: thử thêm/sửa/xóa/hoàn thành và tìm kiếm; dữ liệu cũ phải còn.
@@ -124,7 +168,8 @@ lịch bên ngoài hoặc gói Premium. Spring Boot, FastAPI và ReactJS triển
 ### Kết quả xác minh bản hiện tại
 
 - `assembleDebug` và `lintDebug`: thành công; Android Lint không có lỗi, còn các cảnh báo.
-- Bốn kiểm thử instrumentation đã chạy thành công trên Pixel 5 API 30 bằng AndroidJUnitRunner.
+- Bảy kiểm thử instrumentation đã chạy thành công trên Pixel 5 API 30 bằng AndroidJUnitRunner,
+  gồm migration giữ dữ liệu cũ và chuyển ngày/giữ lịch sử công việc.
 - Kiểm tra trực quan các tab, menu danh sách, bấm giờ, đếm ngược, báo cáo và giao diện tối.
 - APK mới đã được cài cập nhật trên máy ảo, giữ dữ liệu công việc cũ.
 - Luồng chọn tệp lưu PNG và trình chia sẻ có mã xử lý nhưng chưa kiểm tra trọn vẹn với ứng dụng nhận bên ngoài.

@@ -1,15 +1,16 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="?android:attr/colorBackground">
- <ViewFlipper android:id="@+id/screens" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-  <include layout="@layout/screen_tasks" />
-  <include layout="@layout/screen_journal" />
-  <include layout="@layout/screen_calendar" />
-  <include layout="@layout/screen_settings" />
- </ViewFlipper>
- <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#DDDDDD" />
- <LinearLayout android:layout_width="match_parent" android:layout_height="64dp" android:gravity="center_vertical" android:paddingLeft="8dp" android:paddingRight="8dp">
-  <Button android:id="@+id/navTasks" style="@style/NavButton" android:text="@string/nav_tasks" app:drawableTopCompat="@drawable/ic_tasks" />
-  <Button android:id="@+id/navJournal" style="@style/NavButton" android:text="@string/nav_journal" app:drawableTopCompat="@drawable/ic_journal" />
-  <Button android:id="@+id/navCalendar" style="@style/NavButton" android:text="@string/nav_calendar" app:drawableTopCompat="@drawable/ic_calendar" />
-  <Button android:id="@+id/navSettings" style="@style/NavButton" android:text="@string/nav_settings" app:drawableTopCompat="@drawable/ic_settings" />
- </LinearLayout>
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/workspace_surface">
+    <ViewFlipper android:id="@+id/screens" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <include layout="@layout/screen_tasks" />
+        <include layout="@layout/screen_journal" />
+        <include layout="@layout/screen_calendar" />
+        <include layout="@layout/screen_settings" />
+    </ViewFlipper>
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="72dp" android:gravity="center_vertical" android:background="@color/workspace_surface">
+        <ImageButton android:id="@+id/navTasks" style="@style/IconButton" app:srcCompat="@drawable/ic_tasks" android:contentDescription="@string/nav_tasks" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:padding="23dp" />
+        <ImageButton android:id="@+id/navJournal" style="@style/IconButton" app:srcCompat="@drawable/ic_journal" android:contentDescription="@string/nav_journal" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:padding="23dp" />
+        <ImageButton android:id="@+id/navCalendar" style="@style/IconButton" app:srcCompat="@drawable/ic_calendar" android:contentDescription="@string/nav_calendar" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:padding="23dp" />
+        <ImageButton android:id="@+id/navSettings" style="@style/IconButton" app:srcCompat="@drawable/ic_settings" android:contentDescription="@string/nav_settings" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:padding="23dp" />
+    </LinearLayout>
 </LinearLayout>

@@ -27,6 +27,11 @@ public class ReportDialog extends DialogFragment {
     private View view;
     private String reportText = "";
     private String exportText;
+    public static ReportDialog create(int mode) {
+        ReportDialog dialog = new ReportDialog();
+        Bundle args = new Bundle(); args.putInt("mode", mode); dialog.setArguments(args);
+        return dialog;
+    }
     private final ActivityResultLauncher<String> saveImage = registerForActivityResult(
             new ActivityResultContracts.CreateDocument("image/png"), uri -> {
                 if (uri == null) return;
@@ -42,11 +47,13 @@ public class ReportDialog extends DialogFragment {
                 }
             });
     @NonNull @Override public Dialog onCreateDialog(Bundle state) {
+        if (getArguments() != null) mode = getArguments().getInt("mode", 1);
         if (state != null) {
             mode = state.getInt("mode", 1); period.setTimeInMillis(state.getLong("period", period.getTimeInMillis()));
             exportText = state.getString("exportText");
         }
         view = getLayoutInflater().inflate(R.layout.dialog_report, null);
+        ReferenceUi.bindNavigation(view, this);
         RadioGroup modes = view.findViewById(R.id.reportModes);
         modes.check(mode == 0 ? R.id.reportWeek : mode == 1 ? R.id.reportMonth : R.id.reportYear);
         modes.setOnCheckedChangeListener((group, checked) -> {
@@ -106,9 +113,16 @@ public class ReportDialog extends DialogFragment {
             result.append(habit.title).append(": ").append(summary).append('\n');
         }
         if (habits.isEmpty()) {
-            TextView empty = new TextView(requireContext()); empty.setText("Không có thói quen nào\nTạo thói quen từ nút + ở tab Công việc.");
-            empty.setTextSize(18); empty.setPadding(16, 80, 16, 16); rows.addView(empty);
+            rows.setGravity(android.view.Gravity.CENTER);
+            rows.setHorizontalGravity(android.view.Gravity.CENTER_HORIZONTAL);
+            TextView empty = new TextView(requireContext()); empty.setText("Không có thói quen nào");
+            empty.setGravity(android.view.Gravity.CENTER);
+            empty.setTextSize(18); empty.setTypeface(null, android.graphics.Typeface.BOLD);
+            empty.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.workspace_text));
+            rows.addView(empty);
             result.append("Không có thói quen nào\n");
+        } else {
+            rows.setGravity(android.view.Gravity.TOP);
         }
         result.append("\nChỉ tính từ ngày tạo đến hôm nay. Mỗi thói quen có mục tiêu hằng ngày.");
         reportText = result.toString();

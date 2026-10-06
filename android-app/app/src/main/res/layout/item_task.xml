@@ -1,24 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp" android:background="@drawable/task_card"
-    android:orientation="vertical" android:padding="12dp">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:gravity="center_vertical" android:orientation="horizontal">
-        <CheckBox android:id="@+id/taskCompleted" android:layout_width="48dp"
-            android:layout_height="48dp" />
-        <TextView android:id="@+id/taskTitle" android:layout_width="0dp"
-            android:layout_height="wrap_content" android:layout_weight="1"
-            android:textSize="18sp" android:textColor="@color/workspace_text" />
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="60dp" android:layout_marginBottom="6dp" android:background="@drawable/task_card" android:foreground="?attr/selectableItemBackground">
+    <View android:id="@+id/taskPriorityStripe" android:layout_width="4dp" android:layout_height="match_parent" android:layout_gravity="start" android:layout_marginTop="6dp" android:layout_marginBottom="6dp" android:importantForAccessibility="no" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center_vertical" android:padding="8dp" android:paddingStart="12dp" android:orientation="horizontal">
+    <ImageView android:layout_width="28dp" android:layout_height="28dp" android:background="@drawable/control_purple" android:padding="7dp" app:srcCompat="@drawable/ic_checklist" android:contentDescription="@null" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="8dp" android:orientation="vertical">
+        <TextView android:id="@+id/taskTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="16sp" android:textColor="@color/workspace_text" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/taskDateLabel" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="@color/workspace_muted" />
     </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:gravity="end" android:orientation="horizontal">
-        <Button android:id="@+id/editTask" style="@style/Widget.AppCompat.Button.Borderless"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:minHeight="48dp" android:text="@string/edit" android:textAllCaps="false" />
-        <Button android:id="@+id/deleteTask" style="@style/Widget.AppCompat.Button.Borderless"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:minHeight="48dp" android:text="@string/delete" android:textColor="#B3261E"
-            android:textAllCaps="false" />
+    <CheckBox android:id="@+id/taskCompleted" android:layout_width="44dp" android:layout_height="44dp" android:button="@null" android:background="@drawable/completion_box" android:padding="0dp" android:foreground="?attr/selectableItemBackground" />
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

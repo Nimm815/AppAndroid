@@ -4,4 +4,4 @@
  <color name="workspace_text">#F2F2F2</color>
  <color name="workspace_muted">#CCCCCC</color>
  <color name="workspace_accent">#8AD5C7</color>
-</resources>
+ <color name="workspace_line">#555555</color><color name="workspace_control">#3A3A3A</color><color name="workspace_soft">#303030</color><color name="workspace_page">#181818</color></resources>

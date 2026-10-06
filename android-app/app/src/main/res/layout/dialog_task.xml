@@ -8,4 +8,13 @@
         android:layout_height="wrap_content" android:minHeight="48dp"
         android:hint="@string/name_hint" android:inputType="textCapSentences"
         android:maxLength="200" android:imeOptions="actionDone" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="16dp" android:text="Ngày thực hiện" android:labelFor="@id/taskDate" />
+    <Button android:id="@+id/taskDate" style="@style/FlatButton"
+        android:layout_width="match_parent" android:layout_height="48dp" />
+    <Button android:id="@+id/clearTaskDate" style="@style/FlatButton"
+        android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp"
+        android:text="Để sau · chưa lên lịch" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="Mức độ quan trọng" android:labelFor="@id/taskPriority" />
+    <Spinner android:id="@+id/taskPriority" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="64dp" />
 </LinearLayout>

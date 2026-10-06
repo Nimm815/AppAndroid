@@ -27,12 +27,14 @@ public class TaskViewModel extends AndroidViewModel {
     public LiveData<Boolean> getWriteError() { return writeError; }
     public void clearError() { writeError.setValue(false); }
 
-    public void save(long id, String title) {
+    public void save(long id, String title, String date, int priority) {
         String cleaned = title.trim();
         if (cleaned.isEmpty()) throw new IllegalArgumentException("Tên công việc không được trống");
+        if (priority < 1 || priority > 4) throw new IllegalArgumentException("Nhóm quan trọng không hợp lệ");
         write(() -> {
-            if (id == 0) dao.insert(new Task(cleaned));
-            else dao.rename(id, cleaned);
+            if (id == 0) {
+                Task task = new Task(cleaned); task.scheduledDate = date; task.priority = priority; dao.insert(task);
+            } else dao.editWithPriority(id, cleaned, date, priority);
         });
     }
 

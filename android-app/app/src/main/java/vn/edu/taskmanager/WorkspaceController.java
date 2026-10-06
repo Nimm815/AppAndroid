@@ -28,6 +28,8 @@ public class WorkspaceController {
     private int tab;
     private boolean habitsOnly, bookmarkedOnly;
     private String noteQuery = "";
+    private String noteLabel = "";
+    private boolean collapsed;
     private List<Task> tasks = new ArrayList<>();
 
     public WorkspaceController(MainActivity activity, Bundle state) {
@@ -38,6 +40,8 @@ public class WorkspaceController {
             tab = state.getInt("tab"); habitsOnly = state.getBoolean("habitsOnly");
             bookmarkedOnly = state.getBoolean("bookmarkedOnly");
             noteQuery = state.getString("noteQuery", "");
+            noteLabel = state.getString("noteLabel", "");
+            collapsed = state.getBoolean("collapsed", false);
             selected.setTimeInMillis(state.getLong("selectedDay", selected.getTimeInMillis()));
             calendarDay.setTimeInMillis(state.getLong("calendarDay", calendarDay.getTimeInMillis()));
         }
@@ -52,10 +56,10 @@ public class WorkspaceController {
         click(R.id.openReport, this::report);
         click(R.id.settingsTimer, this::timer);
         click(R.id.settingsReport, this::report);
-        click(R.id.manageLists, this::lists);
+        click(R.id.manageLists, this::manageCollections);
         click(R.id.settingsSearch, this::globalSearch);
         click(R.id.help, () -> new AlertDialog.Builder(activity).setTitle(R.string.help)
-                .setMessage("Công việc: chạm + để thêm; dùng Sửa, Xóa hoặc ô hoàn thành.\n\n"
+                .setMessage("Công việc: chạm + để thêm; chạm tên để sửa/xóa, chạm ô bên phải để hoàn thành.\n\n"
                         + "Menu ☰: chọn công việc, thói quen, danh sách hoặc bộ lọc.\n\n"
                         + "Thói quen: chọn ngày rồi đánh dấu hoàn thành. Báo cáo chỉ tính từ ngày tạo.\n\n"
                         + "Nhật ký: thêm ghi chú, tìm kiếm hoặc đánh dấu trang.\n\n"
@@ -69,10 +73,44 @@ public class WorkspaceController {
                             dialog.dismiss();
                             applyTheme(activity);
                         }).setNegativeButton(R.string.cancel, null).show());
-        click(R.id.journalFilter, () -> {
+        click(R.id.journalBookmark, () -> {
             bookmarkedOnly = !bookmarkedOnly;
             refreshJournal();
         });
+        click(R.id.journalItems, () -> new AlertDialog.Builder(activity).setTitle("Hiển thị mục")
+                .setItems(new String[]{"Tất cả mục", "Ghi chú đã đánh dấu"}, (dialog, which) -> {
+                    bookmarkedOnly = which == 1; refreshJournal();
+                }).show());
+        click(R.id.journalFilter, () -> {
+            Set<String> labels = new TreeSet<>();
+            for (LocalStore.Entry entry : store.entries("note")) if (!entry.label.isEmpty()) labels.add(entry.label);
+            List<String> choices = new ArrayList<>(); choices.add("Tất cả nhãn"); choices.addAll(labels);
+            new AlertDialog.Builder(activity).setTitle("Nhãn ghi chú")
+                    .setItems(choices.toArray(new String[0]), (dialog, which) -> {
+                        noteLabel = which == 0 ? "" : choices.get(which); refreshJournal();
+                    }).show();
+        });
+        click(R.id.journalSearchToggle, () -> {
+            View searchView = activity.findViewById(R.id.journalSearch);
+            searchView.setVisibility(searchView.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+            if (searchView.getVisibility() == View.VISIBLE) searchView.requestFocus();
+        });
+        click(R.id.journalMore, () -> new AlertDialog.Builder(activity).setTitle("Nhật ký")
+                .setItems(new String[]{"Thêm ghi chú", "Tìm kiếm", "Tất cả ghi chú"}, (dialog, which) -> {
+                    if (which == 0) editor("note", null, LocalStore.today());
+                    else if (which == 1) { activity.findViewById(R.id.journalSearch).setVisibility(View.VISIBLE); activity.findViewById(R.id.journalSearch).requestFocus(); }
+                    else { noteLabel = ""; bookmarkedOnly = false; ((EditText) activity.findViewById(R.id.journalSearch)).setText(""); refreshJournal(); }
+                }).show());
+        click(R.id.calendarMenu, this::lists);
+        click(R.id.calendarMore, () -> new AlertDialog.Builder(activity).setTitle("Lịch")
+                .setItems(new String[]{"Thêm sự kiện", "Chọn ngày", "Về hôm nay"}, (dialog, which) -> {
+                    if (which == 0) editor("event", null, day(calendarDay));
+                    else activity.findViewById(which == 1 ? R.id.calendarDate : R.id.calendarToday).performClick();
+                }).show());
+        click(R.id.settingsMenu, this::lists);
+        click(R.id.settingsStar, () -> new AlertDialog.Builder(activity).setTitle(R.string.app_name)
+                .setMessage(R.string.local_account_detail).setPositiveButton(R.string.close, null).show());
+        click(R.id.collapseTasks, () -> { collapsed = !collapsed; refresh(); });
         EditText search = activity.findViewById(R.id.journalSearch);
         search.setText(noteQuery);
         search.addTextChangedListener(watcher(value -> { noteQuery = value; refreshJournal(); }));
@@ -83,7 +121,7 @@ public class WorkspaceController {
             calendarDay.set(year, month, date); refreshCalendar();
         }, calendarDay.get(Calendar.YEAR), calendarDay.get(Calendar.MONTH), calendarDay.get(Calendar.DAY_OF_MONTH)).show());
         click(R.id.currentDate, () -> new DatePickerDialog(activity, (picker, year, month, date) -> {
-            selected.set(year, month, date); refresh();
+            selected.set(year, month, date); activity.showSelectedDay(); refresh();
         }, selected.get(Calendar.YEAR), selected.get(Calendar.MONTH), selected.get(Calendar.DAY_OF_MONTH)).show());
         selectTab(tab);
     }
@@ -97,19 +135,23 @@ public class WorkspaceController {
     public void saveState(Bundle state) {
         state.putInt("tab", tab); state.putBoolean("habitsOnly", habitsOnly);
         state.putBoolean("bookmarkedOnly", bookmarkedOnly); state.putString("noteQuery", noteQuery);
+        state.putString("noteLabel", noteLabel); state.putBoolean("collapsed", collapsed);
         state.putLong("selectedDay", selected.getTimeInMillis()); state.putLong("calendarDay", calendarDay.getTimeInMillis());
     }
     public boolean isHabitsOnly() { return habitsOnly; }
+    public void showDailyOverview() { habitsOnly = false; collapsed = false; }
+    public String selectedDate() { return day(selected); }
     public boolean back() {
         if (tab == 0) return false;
         selectTab(0); return true;
     }
-    public void updateTasks(List<Task> value) { tasks = value; }
+    public void updateTasks(List<Task> value) { tasks = value; refresh(); }
     public void entrySaved(LocalStore.Entry entry) {
         if ("habit".equals(entry.type)) {
-            habitsOnly = true; activity.useTaskFilter(0, "", ""); selectTab(0);
+            activity.showSelectedDay(); selectTab(0);
         } else if ("note".equals(entry.type)) {
             bookmarkedOnly = false;
+            noteLabel = "";
             ((EditText) activity.findViewById(R.id.journalSearch)).setText(""); selectTab(1);
         } else if ("event".equals(entry.type)) {
             String[] parts = entry.date.split("-");
@@ -117,7 +159,18 @@ public class WorkspaceController {
             selectTab(2);
         }
     }
-    public void taskCreated() { habitsOnly = false; activity.useTaskFilter(0, "", ""); selectTab(0); }
+    public void taskSaved(String date) {
+        habitsOnly = false; collapsed = false;
+        if (date.isEmpty()) {
+            selected.setTime(new Date()); activity.showSelectedDay();
+        }
+        else {
+            String[] parts = date.split("-");
+            selected.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]));
+            activity.showSelectedDay();
+        }
+        selectTab(0);
+    }
     public void selectTab(int index) {
         tab = index;
         ((ViewFlipper) activity.findViewById(R.id.screens)).setDisplayedChild(index);
@@ -125,24 +178,26 @@ public class WorkspaceController {
         for (int i = 0; i < nav.length; i++) {
             View button = activity.findViewById(nav[i]);
             button.setSelected(i == index);
-            button.setBackgroundColor(i == index ? Color.rgb(213, 210, 242) : Color.TRANSPARENT);
-            int color = i == index ? Color.rgb(35, 35, 35)
-                    : androidx.core.content.ContextCompat.getColor(activity, R.color.workspace_text);
-            ((TextView) button).setTextColor(color);
-            ((TextView) button).setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(color));
+            int color = androidx.core.content.ContextCompat.getColor(activity, i == index ? R.color.workspace_text : R.color.workspace_muted);
+            ((ImageButton) button).setImageTintList(android.content.res.ColorStateList.valueOf(color));
         }
         refresh();
     }
     public void refresh() {
-        week(activity.findViewById(R.id.taskWeek), selected, () -> { refreshHabits(); refreshDate(); });
+        week(activity.findViewById(R.id.taskWeek), selected, () -> { activity.showSelectedDay(); refresh(); });
         refreshDate(); refreshHabits(); refreshJournal();
         if (tab == 2) refreshCalendar();
-        activity.findViewById(R.id.taskListContainer).setVisibility(habitsOnly ? View.GONE : View.VISIBLE);
-        activity.findViewById(R.id.habitScroll).setVisibility(habitsOnly ? View.VISIBLE : View.GONE);
+        activity.findViewById(R.id.taskListContainer).setVisibility(habitsOnly || collapsed ? View.GONE : View.VISIBLE);
+        boolean showHabits = (habitsOnly || activity.isDailyOverview()) && !collapsed;
+        activity.findViewById(R.id.habitScroll).setVisibility(showHabits ? View.VISIBLE : View.GONE);
+        activity.findViewById(R.id.habitHeading).setVisibility(showHabits && !habitsOnly ? View.VISIBLE : View.GONE);
+        activity.findViewById(R.id.collapseTasks).setRotation(collapsed ? 180 : 0);
+        ((Button) activity.findViewById(R.id.themeChoice)).setText(new String[]{"Sáng  ﹀", "Tối  ﹀", "Hệ thống  ﹀"}[preferences.getInt("theme", 0)]);
+        activity.renderTaskDates();
     }
     private void refreshDate() {
         ((TextView) activity.findViewById(R.id.currentDate)).setText(
-                new SimpleDateFormat("EEEE, dd MMMM yyyy", vietnamese).format(selected.getTime()));
+                day(selected).equals(LocalStore.today()) ? "Hôm nay" : new SimpleDateFormat("dd/MM", vietnamese).format(selected.getTime()));
     }
     public void add() {
         new AlertDialog.Builder(activity).setTitle("Thêm mới")
@@ -164,52 +219,94 @@ public class WorkspaceController {
         String keyword = ((EditText) activity.findViewById(R.id.searchTasks)).getText().toString().trim().toLowerCase(Locale.ROOT);
         int visible = 0;
         for (LocalStore.Entry habit : habits) {
+            // Thói quen lặp mỗi ngày từ ngày tạo, không chỉ ngày nhập trong form.
+            if (date.compareTo(habit.created) < 0) continue;
             if (!habit.title.toLowerCase(Locale.ROOT).contains(keyword)) continue;
             visible++;
             if (habit.days.contains(date)) done++;
             LinearLayout card = card(rows);
+            card.setOrientation(LinearLayout.HORIZONTAL);
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setPadding(dp(8), dp(8), dp(8), dp(8));
+            ImageView icon = new ImageView(activity);
+            icon.setImageResource(R.drawable.ic_leaf);
+            icon.setBackgroundResource(R.drawable.control_purple);
+            icon.setPadding(dp(6), dp(6), dp(6), dp(6));
+            card.addView(icon, new LinearLayout.LayoutParams(dp(28), dp(28)));
+            TextView title = new TextView(activity);
+            title.setText(habit.title); title.setTextSize(16);
+            title.setTextColor(androidx.core.content.ContextCompat.getColor(activity, R.color.workspace_text));
+            title.setPadding(dp(8), 0, dp(8), 0);
+            card.addView(title, new LinearLayout.LayoutParams(0, dp(44), 1));
+            title.setGravity(Gravity.CENTER_VERTICAL);
+            card.setOnClickListener(v -> entryActions(habit));
             CheckBox check = new CheckBox(activity);
-            check.setText(habit.title); check.setTextSize(18); check.setMinHeight(dp(48));
+            check.setButtonDrawable(null);
+            check.setBackgroundResource(R.drawable.completion_box);
+            check.setContentDescription("Hoàn thành " + habit.title);
             check.setChecked(habit.days.contains(date));
             boolean available = date.compareTo(LocalStore.today()) <= 0 && date.compareTo(habit.created) >= 0;
             check.setEnabled(available);
             check.setOnCheckedChangeListener((button, checked) -> {
                 store.checkHabit(habit, date, checked); refreshHabits();
             });
-            card.addView(check);
-            text(card, habit.body.isEmpty() ? "Mục tiêu: hoàn thành mỗi ngày" : habit.body, 14);
-            if (!available) text(card, "Chỉ ghi nhận từ ngày tạo đến hôm nay", 12);
-            action(card, "Sửa / Xóa", () -> entryActions(habit));
+            card.addView(check, new LinearLayout.LayoutParams(dp(44), dp(44)));
         }
         if (visible == 0) text(rows, habits.isEmpty() ? "Chưa có thói quen\nChạm + để tạo thói quen hằng ngày" : "Không có thói quen phù hợp", 18);
+        ((TextView) activity.findViewById(R.id.habitHeading)).setText("Thói quen hằng ngày · " + visible + " · " + done + " đã hoàn thành");
         if (habitsOnly) {
             ((TextView) activity.findViewById(R.id.listHeading)).setText("Thói quen hằng ngày");
             ((TextView) activity.findViewById(R.id.taskSummary)).setText(visible + " thói quen · " + done + " đã hoàn thành");
+            ((TextView) activity.findViewById(R.id.taskCount)).setText(String.valueOf(visible));
         }
     }
-    public void searchChanged() { if (habitsOnly) refreshHabits(); }
+    public void searchChanged() { refreshHabits(); }
     private void refreshJournal() {
         LinearLayout rows = activity.findViewById(R.id.journalEntries); rows.removeAllViews();
-        ((Button) activity.findViewById(R.id.journalFilter)).setText(bookmarkedOnly ? "Đã đánh dấu ▾" : "Tất cả ▾");
+        ((Button) activity.findViewById(R.id.journalFilter)).setText((noteLabel.isEmpty() ? "Tất cả nhãn" : noteLabel) + "  ﹀");
+        ((Button) activity.findViewById(R.id.journalItems)).setText(bookmarkedOnly ? "Đã đánh dấu  ﹀" : "Tất cả mục  ﹀");
+        ((ImageButton) activity.findViewById(R.id.journalBookmark)).setImageTintList(android.content.res.ColorStateList.valueOf(
+                androidx.core.content.ContextCompat.getColor(activity, bookmarkedOnly ? R.color.workspace_accent : R.color.workspace_text)));
         List<LocalStore.Entry> notes = store.entries("note");
         Collections.reverse(notes);
         int count = 0;
         for (LocalStore.Entry note : notes) {
             if (bookmarkedOnly && !note.bookmarked) continue;
+            if (!noteLabel.isEmpty() && !noteLabel.equals(note.label)) continue;
             if (!(note.title + " " + note.body).toLowerCase(Locale.ROOT).contains(noteQuery.trim().toLowerCase(Locale.ROOT))) continue;
             count++;
-            LinearLayout card = card(rows);
-            text(card, (note.bookmarked ? "★ " : "") + note.title, 20);
-            text(card, note.date, 13); text(card, note.body, 16);
-            LinearLayout buttons = new LinearLayout(activity); card.addView(buttons);
-            action(buttons, note.bookmarked ? "Bỏ đánh dấu" : "Đánh dấu", () -> {
+            View card = activity.getLayoutInflater().inflate(R.layout.item_journal, rows, false);
+            rows.addView(card);
+            ((TextView) card.findViewById(R.id.noteTitle)).setText(note.title);
+            ((TextView) card.findViewById(R.id.noteMeta)).setText(MainActivity.displayDate(note.date)
+                    + (note.label.isEmpty() ? "" : "  ·  " + note.label));
+            ((TextView) card.findViewById(R.id.notePreview)).setText(note.body.isEmpty() ? "Chưa có nội dung. Chạm để viết thêm." : note.body);
+            ImageButton bookmark = card.findViewById(R.id.noteBookmark);
+            bookmark.setImageTintList(android.content.res.ColorStateList.valueOf(
+                    androidx.core.content.ContextCompat.getColor(activity, note.bookmarked ? R.color.workspace_accent : R.color.workspace_muted)));
+            bookmark.setContentDescription(note.bookmarked ? "Bỏ đánh dấu " + note.title : "Đánh dấu " + note.title);
+            bookmark.setOnClickListener(v -> {
                 note.bookmarked = !note.bookmarked; store.save(note); refreshJournal();
             });
-            action(buttons, "Sửa / Xóa", () -> entryActions(note));
+            View.OnClickListener read = v -> {
+                if (activity.getSupportFragmentManager().findFragmentByTag("journal_reader") == null)
+                    JournalReaderDialog.create(note.id).show(activity.getSupportFragmentManager(), "journal_reader");
+            };
+            card.setOnClickListener(read);
+            card.findViewById(R.id.noteRead).setOnClickListener(read);
+            card.findViewById(R.id.noteEdit).setOnClickListener(v -> editor("note", note.id, note.date));
         }
         if (count == 0) {
-            TextView empty = text(rows, "Không có ghi chú phù hợp\nChạm nút + để thêm", 18);
-            empty.setGravity(Gravity.CENTER); empty.setMinHeight(dp(350));
+            rows.setGravity(Gravity.CENTER);
+            TextView empty = text(rows, notes.isEmpty() ? "Không có ghi chú hoặc hoạt động\nChạm nút + để thêm" : "Không có ghi chú phù hợp", 17);
+            empty.setGravity(Gravity.CENTER); empty.setLineSpacing(dp(8), 1);
+            android.text.SpannableString message = new android.text.SpannableString(empty.getText());
+            int firstLine = message.toString().indexOf('\n');
+            message.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0,
+                    firstLine < 0 ? message.length() : firstLine, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            empty.setText(message);
+        } else {
+            rows.setGravity(Gravity.TOP);
         }
     }
     private void entryActions(LocalStore.Entry entry) {
@@ -236,7 +333,7 @@ public class WorkspaceController {
             LinearLayout row = new LinearLayout(activity); grid.addView(row);
             TextView label = text(row, String.format(Locale.ROOT, "%02d:00", hour), 11);
             label.setGravity(Gravity.TOP); label.setPadding(dp(2), dp(4), 0, 0);
-            label.setLayoutParams(new LinearLayout.LayoutParams(dp(42), dp(76)));
+            label.setLayoutParams(new LinearLayout.LayoutParams(dp(48), dp(76)));
             for (int weekday = 0; weekday < 7; weekday++) {
                 Calendar date = (Calendar) monday.clone(); date.add(Calendar.DAY_OF_MONTH, weekday);
                 String key = day(date);
@@ -276,14 +373,29 @@ public class WorkspaceController {
         String[] names = {"T2", "T3", "T4", "T5", "T6", "T7", "CN"};
         for (int i = 0; i < 7; i++) {
             Calendar date = (Calendar) start.clone(); date.add(Calendar.DAY_OF_MONTH, i);
-            Button button = new Button(activity);
-            button.setText(names[i] + "\n" + date.get(Calendar.DAY_OF_MONTH)); button.setTextSize(12);
-            button.setPadding(0, 0, 0, 0); button.setMinWidth(0); button.setMinimumWidth(0);
+            LinearLayout button = new LinearLayout(activity);
+            button.setOrientation(LinearLayout.VERTICAL);
+            button.setGravity(Gravity.CENTER);
+            boolean calendar = container.getId() == R.id.calendarWeek;
+            int nameColor = androidx.core.content.ContextCompat.getColor(activity, calendar ? R.color.workspace_text : R.color.workspace_accent);
+            TextView weekday = new TextView(activity);
+            weekday.setText(names[i]); weekday.setTextSize(12); weekday.setTextColor(nameColor);
+            weekday.setGravity(Gravity.CENTER); weekday.setIncludeFontPadding(false);
+            button.addView(weekday, new LinearLayout.LayoutParams(-1, -2));
+            TextView number = new TextView(activity);
+            number.setText(String.valueOf(date.get(Calendar.DAY_OF_MONTH))); number.setTextSize(22);
+            number.setTextColor(androidx.core.content.ContextCompat.getColor(activity, R.color.workspace_text));
+            number.setGravity(Gravity.CENTER); number.setIncludeFontPadding(false);
+            LinearLayout.LayoutParams numberParams = new LinearLayout.LayoutParams(-1, -2);
+            numberParams.topMargin = dp(2); button.addView(number, numberParams);
+            button.setClickable(true); button.setFocusable(true);
             button.setContentDescription(new SimpleDateFormat("EEEE dd/MM/yyyy", vietnamese).format(date.getTime()));
-            button.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
-            button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                    day(date).equals(day(day)) ? Color.rgb(213, 210, 242) : Color.rgb(232, 232, 232)));
-            button.setTextColor(Color.rgb(35, 35, 35));
+            LinearLayout.LayoutParams chip = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1);
+            chip.setMargins(calendar ? 0 : dp(2), 0, calendar ? 0 : dp(2), 0);
+            button.setLayoutParams(chip);
+            button.setBackgroundTintList(null);
+            button.setBackgroundResource(day(date).equals(day(day)) ? calendar ? R.drawable.control_soft : R.drawable.day_selected
+                    : calendar ? android.R.color.transparent : R.drawable.control_gray);
             button.setOnClickListener(v -> { day.setTime(date.getTime()); week(container, day, changed); changed.run(); });
             container.addView(button);
         }
@@ -291,11 +403,15 @@ public class WorkspaceController {
     public void lists() {
         View view = activity.getLayoutInflater().inflate(R.layout.dialog_lists, null);
         AlertDialog dialog = new AlertDialog.Builder(activity).setView(view).create();
+        view.findViewById(R.id.listToday).setOnClickListener(v -> {
+            selected.setTime(new Date()); habitsOnly = false; collapsed = false;
+            activity.showSelectedDay(); dialog.dismiss(); selectTab(0);
+        });
         int[] ids = {R.id.listAllTasks, R.id.listPending, R.id.listCompleted, R.id.listHabits};
         for (int i = 0; i < ids.length; i++) {
             final int which = i;
             view.findViewById(ids[i]).setOnClickListener(v -> {
-                habitsOnly = which == 3;
+                habitsOnly = which == 3; collapsed = false;
                 activity.useTaskFilter(which < 3 ? which : 0, "", "");
                 dialog.dismiss(); selectTab(0);
             });
@@ -321,13 +437,90 @@ public class WorkspaceController {
                                 }).show();
                     }).show());
         }
-        view.findViewById(R.id.createList).setOnClickListener(v -> { dialog.dismiss(); createCollection("list", null); });
-        view.findViewById(R.id.createFilter).setOnClickListener(v -> { dialog.dismiss(); createCollection("filter", null); });
+        ((Button) view.findViewById(R.id.listAllTasks)).setText("Tất cả công việc                 " + tasks.size());
+        ((Button) view.findViewById(R.id.listHabits)).setText("Tất cả thói quen                 " + store.entries("habit").size());
+        EditText search = view.findViewById(R.id.drawerSearch);
+        search.setText(((EditText) activity.findViewById(R.id.searchTasks)).getText());
+        search.addTextChangedListener(watcher(value -> ((EditText) activity.findViewById(R.id.searchTasks)).setText(value)));
+        view.findViewById(R.id.manageCollections).setOnClickListener(v -> { dialog.dismiss(); manageCollections(); });
+        view.findViewById(R.id.habitsCompact).setOnClickListener(v -> {
+            dialog.dismiss(); habitsOnly = true; collapsed = false; selectTab(0);
+        });
+        int[] reportButtons = {R.id.habitsWeek, R.id.habitsMonth, R.id.habitsYear};
+        for (int i = 0; i < reportButtons.length; i++) {
+            final int mode = i;
+            view.findViewById(reportButtons[i]).setOnClickListener(v -> {
+                dialog.dismiss();
+                if (activity.getSupportFragmentManager().findFragmentByTag("report") == null)
+                    ReportDialog.create(mode).show(activity.getSupportFragmentManager(), "report");
+            });
+        }
         view.findViewById(R.id.closeLists).setOnClickListener(v -> dialog.dismiss());
         dialog.show();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setGravity(Gravity.START);
-            dialog.getWindow().setLayout((int) (activity.getResources().getDisplayMetrics().widthPixels * .88), ViewGroup.LayoutParams.MATCH_PARENT);
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout((int) (activity.getResources().getDisplayMetrics().widthPixels * .78), ViewGroup.LayoutParams.MATCH_PARENT);
+        }
+    }
+    private void manageCollections() {
+        View view = activity.getLayoutInflater().inflate(R.layout.dialog_list_manager, null);
+        AlertDialog dialog = new AlertDialog.Builder(activity).setView(view).create();
+        LinearLayout rows = view.findViewById(R.id.managerRows);
+        for (String title : new String[]{"Tất cả công việc", "Tất cả thói quen"}) {
+            LinearLayout row = new LinearLayout(activity); row.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(58));
+            rowParams.bottomMargin = dp(6); rows.addView(row, rowParams);
+            ImageView icon = new ImageView(activity);
+            icon.setImageResource(title.equals("Tất cả thói quen") ? R.drawable.badge_habits : R.drawable.badge_tasks);
+            row.addView(icon, new LinearLayout.LayoutParams(dp(32), dp(32)));
+            Button button = new Button(activity); button.setText(title);
+            button.setTextSize(14);
+            LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(0, dp(52), 1);
+            nameParams.leftMargin = dp(8); nameParams.rightMargin = dp(6); row.addView(button, nameParams);
+            ImageButton info = new ImageButton(activity); info.setImageResource(R.drawable.ic_info);
+            info.setBackgroundResource(R.drawable.control_gray); info.setPadding(dp(10), dp(10), dp(10), dp(10));
+            info.setContentDescription("Thông tin " + title);
+            row.addView(info, new LinearLayout.LayoutParams(dp(44), dp(44)));
+            info.setOnClickListener(v -> new AlertDialog.Builder(activity).setTitle(title)
+                    .setMessage("Danh sách mặc định. Bạn có thể tạo danh sách riêng hoặc bộ lọc bằng các nút bên dưới.")
+                    .setPositiveButton(R.string.close, null).show());
+            button.setOnClickListener(v -> {
+                dialog.dismiss(); habitsOnly = title.equals("Tất cả thói quen"); collapsed = false;
+                activity.useTaskFilter(0, "", ""); selectTab(0);
+            });
+        }
+        for (LocalStore.Entry entry : store.entries(null)) {
+            if (!"list".equals(entry.type) && !"filter".equals(entry.type)) continue;
+            LinearLayout row = new LinearLayout(activity); row.setGravity(Gravity.CENTER_VERTICAL);
+            rows.addView(row);
+            Button name = new Button(activity); name.setText(entry.title);
+            row.addView(name, new LinearLayout.LayoutParams(0, dp(52), 1));
+            ImageButton edit = new ImageButton(activity); edit.setImageResource(R.drawable.ic_edit);
+            edit.setBackgroundResource(R.drawable.control_gray); edit.setPadding(dp(12), dp(12), dp(12), dp(12));
+            edit.setContentDescription("Sửa " + entry.title);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(44), dp(44)); params.leftMargin = dp(6);
+            row.addView(edit, params);
+            edit.setOnClickListener(v -> { dialog.dismiss(); createCollection(entry.type, entry); });
+            name.setOnClickListener(v -> new AlertDialog.Builder(activity).setTitle(entry.title)
+                    .setMessage("list".equals(entry.type) ? "Danh sách chứa các công việc bạn đã chọn." : "Bộ lọc tìm công việc theo tên và trạng thái.")
+                    .setNegativeButton(R.string.close, null).setPositiveButton(R.string.delete, (d, which) ->
+                            new AlertDialog.Builder(activity).setTitle("Xóa danh sách / bộ lọc?")
+                                    .setMessage("Các công việc vẫn được giữ lại.").setNegativeButton(R.string.cancel, null)
+                                    .setPositiveButton(R.string.delete, (confirm, selected) -> {
+                                        store.delete(entry.id); dialog.dismiss(); activity.useTaskFilter(0, "", ""); manageCollections();
+                                    }).show()).show());
+        }
+        view.findViewById(R.id.closeManager).setOnClickListener(v -> dialog.dismiss());
+        view.findViewById(R.id.managerHelp).setOnClickListener(v -> new AlertDialog.Builder(activity)
+                .setTitle("Danh sách / Bộ lọc").setMessage("Danh sách chứa công việc được chọn. Bộ lọc tự tìm công việc theo tên và trạng thái.")
+                .setPositiveButton(R.string.close, null).show());
+        view.findViewById(R.id.createList).setOnClickListener(v -> { dialog.dismiss(); createCollection("list", null); });
+        view.findViewById(R.id.createFilter).setOnClickListener(v -> { dialog.dismiss(); createCollection("filter", null); });
+        dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout((int) (activity.getResources().getDisplayMetrics().widthPixels * .93), ViewGroup.LayoutParams.WRAP_CONTENT);
         }
     }
     private void createCollection(String type, LocalStore.Entry old) {

@@ -1,14 +1,25 @@
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="?android:attr/colorBackground">
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-  <TextView style="@style/ScreenTitle" android:text="@string/manage_lists" />
-  <Button android:id="@+id/listAllTasks" style="@style/WideButton" android:text="@string/list_all_tasks" />
-  <Button android:id="@+id/listPending" style="@style/WideButton" android:text="@string/list_pending" />
-  <Button android:id="@+id/listCompleted" style="@style/WideButton" android:text="@string/list_completed" />
-  <Button android:id="@+id/listHabits" style="@style/WideButton" android:text="@string/list_habits" />
-  <TextView style="@style/PanelText" android:text="@string/personal_lists" android:textStyle="bold" />
-  <LinearLayout android:id="@+id/customLists" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
-  <Button android:id="@+id/createList" style="@style/WideButton" android:text="@string/create_list" />
-  <Button android:id="@+id/createFilter" style="@style/WideButton" android:text="@string/create_filter" />
-  <Button android:id="@+id/closeLists" style="@style/WideButton" android:text="@string/close" />
- </LinearLayout>
-</ScrollView>
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="@color/workspace_surface" android:padding="10dp">
+    <FrameLayout android:layout_width="match_parent" android:layout_height="64dp">
+        <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="Danh sách / Bộ lọc  ﹀" android:textStyle="bold" android:textSize="16sp" android:textColor="@color/workspace_text" />
+        <ImageButton android:id="@+id/closeLists" style="@style/IconButton" app:srcCompat="@drawable/ic_close" android:layout_gravity="end|center_vertical" android:contentDescription="@string/close" android:layout_width="32dp" android:layout_height="32dp" />
+    </FrameLayout>
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+            <Button android:id="@+id/listToday" style="@style/DrawerRow" android:text="Hôm nay" app:drawableStartCompat="@drawable/badge_today" />
+            <Button android:id="@+id/listAllTasks" style="@style/DrawerRow" android:background="@drawable/control_soft" android:text="@string/list_all_tasks" app:drawableStartCompat="@drawable/badge_tasks" />
+            <Button android:id="@+id/listHabits" style="@style/DrawerRow" android:text="@string/list_habits" app:drawableStartCompat="@drawable/badge_habits" />
+            <TextView style="@style/DrawerHeading" android:text="Bộ lọc công việc  ﹀" />
+            <Button android:id="@+id/listPending" style="@style/DrawerRow" android:text="@string/list_pending" app:drawableStartCompat="@drawable/badge_today" />
+            <Button android:id="@+id/listCompleted" style="@style/DrawerRow" android:text="@string/list_completed" app:drawableStartCompat="@drawable/badge_tasks" />
+            <TextView style="@style/DrawerHeading" android:text="Hiển thị thói quen  ﹀" />
+            <Button android:id="@+id/habitsCompact" style="@style/DrawerRow" android:text="Thu gọn" app:drawableStartCompat="@drawable/badge_habits" />
+            <Button android:id="@+id/habitsWeek" style="@style/DrawerRow" android:text="Hàng tuần" app:drawableStartCompat="@drawable/badge_week" />
+            <Button android:id="@+id/habitsMonth" style="@style/DrawerRow" android:text="Hàng tháng" app:drawableStartCompat="@drawable/badge_month" />
+            <Button android:id="@+id/habitsYear" style="@style/DrawerRow" android:text="Hàng năm" app:drawableStartCompat="@drawable/badge_year" />
+            <LinearLayout android:id="@+id/customLists" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        </LinearLayout>
+    </ScrollView>
+    <EditText android:id="@+id/drawerSearch" android:layout_width="match_parent" android:layout_height="56dp" android:background="@drawable/box_empty" android:padding="12dp" android:hint="@string/search_tasks_habits" android:textSize="16sp" android:singleLine="true" android:inputType="text" android:layout_marginBottom="8dp" />
+    <Button android:id="@+id/manageCollections" style="@style/BlackButton" android:layout_width="match_parent" android:layout_height="60dp" android:text="@string/manage_lists" />
+</LinearLayout>

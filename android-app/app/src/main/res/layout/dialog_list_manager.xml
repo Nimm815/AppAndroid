@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@color/workspace_surface">
+    <FrameLayout android:layout_width="match_parent" android:layout_height="60dp" android:background="@color/workspace_control">
+        <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="Danh sách / Bộ lọc" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/workspace_text" />
+        <ImageButton android:id="@+id/closeManager" style="@style/IconButton" android:layout_gravity="start|center_vertical" app:srcCompat="@drawable/ic_close" android:contentDescription="@string/close" />
+        <ImageButton android:id="@+id/managerHelp" style="@style/IconButton" android:layout_gravity="end|center_vertical" app:srcCompat="@drawable/ic_info" android:contentDescription="Hướng dẫn danh sách" />
+    </FrameLayout>
+    <ScrollView android:layout_width="match_parent" android:layout_height="240dp">
+        <LinearLayout android:id="@+id/managerRows" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="14dp" />
+    </ScrollView>
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
+    <Button android:id="@+id/createList" style="@style/BlackButton" android:layout_width="match_parent" android:layout_height="72dp" android:layout_margin="14dp" android:text="Tạo danh sách\nTạo bộ sưu tập công việc   ›" />
+    <Button android:id="@+id/createFilter" style="@style/FlatButton" android:layout_width="match_parent" android:layout_height="72dp" android:layout_marginStart="14dp" android:layout_marginEnd="14dp" android:layout_marginBottom="14dp" android:text="Tạo bộ lọc\nXem công việc đáp ứng tiêu chí   ›" />
+</LinearLayout>

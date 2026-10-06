@@ -63,4 +63,4 @@
 <string name="personal_lists">Danh sách và bộ lọc cá nhân</string>
 <string name="create_list">+ Tạo danh sách công việc</string>
 <string name="create_filter">+ Tạo bộ lọc theo tên và trạng thái</string>
-<string name="time_units">Giờ · Phút · Giây</string><string name="lap">Ghi vòng</string><string name="save_report_image">Lưu ảnh báo cáo</string></resources>
+<string name="time_units">Giờ · Phút · Giây</string><string name="lap">Ghi vòng</string><string name="save_report_image">Lưu ảnh báo cáo</string><string name="note_label">Nhãn (ví dụ: Học tập)</string><string name="search_tasks_habits">Tìm công việc và thói quen…</string></resources>
