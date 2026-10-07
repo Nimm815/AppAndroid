@@ -7,10 +7,5 @@
         <include layout="@layout/screen_settings" />
     </ViewFlipper>
     <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="72dp" android:gravity="center_vertical" android:background="@color/workspace_surface">
-        <ImageButton android:id="@+id/navTasks" style="@style/IconButton" app:srcCompat="@drawable/ic_tasks" android:contentDescription="@string/nav_tasks" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:padding="23dp" />
-        <ImageButton android:id="@+id/navJournal" style="@style/IconButton" app:srcCompat="@drawable/ic_journal" android:contentDescription="@string/nav_journal" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:padding="23dp" />
-        <ImageButton android:id="@+id/navCalendar" style="@style/IconButton" app:srcCompat="@drawable/ic_calendar" android:contentDescription="@string/nav_calendar" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:padding="23dp" />
-        <ImageButton android:id="@+id/navSettings" style="@style/IconButton" app:srcCompat="@drawable/ic_settings" android:contentDescription="@string/nav_settings" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:padding="23dp" />
-    </LinearLayout>
+    <include layout="@layout/bottom_navigation" />
 </LinearLayout>

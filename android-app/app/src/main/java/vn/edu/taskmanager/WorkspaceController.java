@@ -51,6 +51,7 @@ public class WorkspaceController {
             activity.findViewById(nav[i]).setOnClickListener(v -> selectTab(index));
         }
         click(R.id.addNote, () -> editor("note", null, LocalStore.today()));
+        click(R.id.journalQuickWrite, () -> editor("note", null, LocalStore.today()));
         click(R.id.addEvent, () -> editor("event", null, day(calendarDay)));
         click(R.id.openTimer, this::timer);
         click(R.id.openReport, this::report);
@@ -96,10 +97,14 @@ public class WorkspaceController {
             if (searchView.getVisibility() == View.VISIBLE) searchView.requestFocus();
         });
         click(R.id.journalMore, () -> new AlertDialog.Builder(activity).setTitle("Nhật ký")
-                .setItems(new String[]{"Thêm ghi chú", "Tìm kiếm", "Tất cả ghi chú"}, (dialog, which) -> {
+                .setItems(new String[]{"Thêm ghi chú", "Tìm kiếm", "Tất cả ghi chú", "Bộ lọc và nhãn"}, (dialog, which) -> {
                     if (which == 0) editor("note", null, LocalStore.today());
                     else if (which == 1) { activity.findViewById(R.id.journalSearch).setVisibility(View.VISIBLE); activity.findViewById(R.id.journalSearch).requestFocus(); }
-                    else { noteLabel = ""; bookmarkedOnly = false; ((EditText) activity.findViewById(R.id.journalSearch)).setText(""); refreshJournal(); }
+                    else if (which == 2) { noteLabel = ""; bookmarkedOnly = false; ((EditText) activity.findViewById(R.id.journalSearch)).setText(""); refreshJournal(); }
+                    else {
+                        View tools = activity.findViewById(R.id.journalTools);
+                        tools.setVisibility(tools.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+                    }
                 }).show());
         click(R.id.calendarMenu, this::lists);
         click(R.id.calendarMore, () -> new AlertDialog.Builder(activity).setTitle("Lịch")
@@ -175,10 +180,12 @@ public class WorkspaceController {
         tab = index;
         ((ViewFlipper) activity.findViewById(R.id.screens)).setDisplayedChild(index);
         int[] nav = {R.id.navTasks, R.id.navJournal, R.id.navCalendar, R.id.navSettings};
+        int[] indicators = {R.id.navTasksIndicator, R.id.navJournalIndicator, R.id.navCalendarIndicator, R.id.navSettingsIndicator};
         for (int i = 0; i < nav.length; i++) {
+            activity.findViewById(indicators[i]).setVisibility(i == index ? View.VISIBLE : View.INVISIBLE);
             View button = activity.findViewById(nav[i]);
             button.setSelected(i == index);
-            int color = androidx.core.content.ContextCompat.getColor(activity, i == index ? R.color.workspace_text : R.color.workspace_muted);
+            int color = androidx.core.content.ContextCompat.getColor(activity, i == index ? R.color.navigation_blue : R.color.workspace_muted);
             ((ImageButton) button).setImageTintList(android.content.res.ColorStateList.valueOf(color));
         }
         refresh();
@@ -263,39 +270,62 @@ public class WorkspaceController {
     public void searchChanged() { refreshHabits(); }
     private void refreshJournal() {
         LinearLayout rows = activity.findViewById(R.id.journalEntries); rows.removeAllViews();
+        ((TextView) activity.findViewById(R.id.journalToday)).setText("Hôm nay, "
+                + new SimpleDateFormat("dd/MM", vietnamese).format(new Date()));
         ((Button) activity.findViewById(R.id.journalFilter)).setText((noteLabel.isEmpty() ? "Tất cả nhãn" : noteLabel) + "  ﹀");
         ((Button) activity.findViewById(R.id.journalItems)).setText(bookmarkedOnly ? "Đã đánh dấu  ﹀" : "Tất cả mục  ﹀");
         ((ImageButton) activity.findViewById(R.id.journalBookmark)).setImageTintList(android.content.res.ColorStateList.valueOf(
                 androidx.core.content.ContextCompat.getColor(activity, bookmarkedOnly ? R.color.workspace_accent : R.color.workspace_text)));
         List<LocalStore.Entry> notes = store.entries("note");
-        Collections.reverse(notes);
-        int count = 0;
+        // Nhóm theo ngày viết, không đổi vị trí khi chỉ sửa nội dung hoặc đánh dấu.
+        Collections.sort(notes, (a, b) -> (b.date + " " + b.time).compareTo(a.date + " " + a.time));
+        Map<String, Integer> monthCounts = new LinkedHashMap<>();
+        List<LocalStore.Entry> visibleNotes = new ArrayList<>();
         for (LocalStore.Entry note : notes) {
             if (bookmarkedOnly && !note.bookmarked) continue;
             if (!noteLabel.isEmpty() && !noteLabel.equals(note.label)) continue;
             if (!(note.title + " " + note.body).toLowerCase(Locale.ROOT).contains(noteQuery.trim().toLowerCase(Locale.ROOT))) continue;
+            visibleNotes.add(note);
+            String month = note.date.length() >= 7 ? note.date.substring(0, 7) : "";
+            Integer monthCount = monthCounts.get(month);
+            monthCounts.put(month, monthCount == null ? 1 : monthCount + 1);
+        }
+        int count = 0;
+        String previousMonth = null;
+        for (LocalStore.Entry note : visibleNotes) {
+            String month = note.date.length() >= 7 ? note.date.substring(0, 7) : "";
+            if (!month.equals(previousMonth)) {
+                journalMonthHeading(rows, month, monthCounts.get(month));
+                previousMonth = month;
+            }
             count++;
             View card = activity.getLayoutInflater().inflate(R.layout.item_journal, rows, false);
             rows.addView(card);
             ((TextView) card.findViewById(R.id.noteTitle)).setText(note.title);
             ((TextView) card.findViewById(R.id.noteMeta)).setText(MainActivity.displayDate(note.date)
-                    + (note.label.isEmpty() ? "" : "  ·  " + note.label));
+                    + (note.time.isEmpty() ? "" : " · " + note.time));
             ((TextView) card.findViewById(R.id.notePreview)).setText(note.body.isEmpty() ? "Chưa có nội dung. Chạm để viết thêm." : note.body);
-            ImageButton bookmark = card.findViewById(R.id.noteBookmark);
-            bookmark.setImageTintList(android.content.res.ColorStateList.valueOf(
-                    androidx.core.content.ContextCompat.getColor(activity, note.bookmarked ? R.color.workspace_accent : R.color.workspace_muted)));
-            bookmark.setContentDescription(note.bookmarked ? "Bỏ đánh dấu " + note.title : "Đánh dấu " + note.title);
-            bookmark.setOnClickListener(v -> {
-                note.bookmarked = !note.bookmarked; store.save(note); refreshJournal();
-            });
+            TextView label = card.findViewById(R.id.noteLabel);
+            label.setText(note.label + (note.bookmarked ? (note.label.isEmpty() ? "" : " · ") + "Đã đánh dấu" : ""));
+            label.setVisibility(label.getText().length() == 0 ? View.GONE : View.VISIBLE);
             View.OnClickListener read = v -> {
                 if (activity.getSupportFragmentManager().findFragmentByTag("journal_reader") == null)
                     JournalReaderDialog.create(note.id).show(activity.getSupportFragmentManager(), "journal_reader");
             };
             card.setOnClickListener(read);
-            card.findViewById(R.id.noteRead).setOnClickListener(read);
-            card.findViewById(R.id.noteEdit).setOnClickListener(v -> editor("note", note.id, note.date));
+            card.setOnLongClickListener(v -> {
+                new AlertDialog.Builder(activity).setTitle(note.title)
+                        .setItems(new String[]{"Sửa bài nhật ký", note.bookmarked ? "Bỏ đánh dấu" : "Đánh dấu", "Xóa bài nhật ký"}, (dialog, which) -> {
+                            if (which == 0) editor("note", note.id, note.date);
+                            else if (which == 1) { note.bookmarked = !note.bookmarked; store.save(note); refreshJournal(); }
+                            else new AlertDialog.Builder(activity).setTitle("Xóa bài nhật ký?")
+                                    .setMessage(note.title).setNegativeButton(R.string.cancel, null)
+                                    .setPositiveButton(R.string.delete, (confirm, button) -> { store.delete(note.id); refreshJournal(); }).show();
+                        }).show();
+                return true;
+            });
         }
+        ((TextView) activity.findViewById(R.id.journalSummary)).setText(count + " bài nhật ký · Mỗi ngày, một trang của bạn");
         if (count == 0) {
             rows.setGravity(Gravity.CENTER);
             TextView empty = text(rows, notes.isEmpty() ? "Không có ghi chú hoặc hoạt động\nChạm nút + để thêm" : "Không có ghi chú phù hợp", 17);
@@ -308,6 +338,24 @@ public class WorkspaceController {
         } else {
             rows.setGravity(Gravity.TOP);
         }
+    }
+    private void journalMonthHeading(LinearLayout rows, String month, int count) {
+        LinearLayout heading = new LinearLayout(activity);
+        heading.setGravity(Gravity.CENTER_VERTICAL);
+        heading.setPadding(0, dp(16), 0, dp(12));
+        TextView title = new TextView(activity);
+        String[] parts = month.split("-");
+        title.setText(parts.length == 2 ? "Tháng " + Integer.parseInt(parts[1]) + ", " + parts[0] : "Chưa có ngày");
+        title.setTextSize(18);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setTextColor(androidx.core.content.ContextCompat.getColor(activity, R.color.workspace_text));
+        heading.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        TextView total = new TextView(activity);
+        total.setText(count + " bài viết");
+        total.setTextSize(13);
+        total.setTextColor(androidx.core.content.ContextCompat.getColor(activity, R.color.workspace_muted));
+        heading.addView(total);
+        rows.addView(heading);
     }
     private void entryActions(LocalStore.Entry entry) {
         new AlertDialog.Builder(activity).setTitle(entry.title).setItems(new String[]{"Sửa", "Xóa"}, (dialog, which) -> {

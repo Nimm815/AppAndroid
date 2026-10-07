@@ -49,7 +49,9 @@ public class EntryEditorDialog extends DialogFragment {
         title.setText(state != null ? state.getString("title") : old == null ? "" : old.title);
         body.setText(state != null ? state.getString("body") : old == null ? "" : old.body);
         date = state != null ? state.getString("date") : old == null ? requireArguments().getString("date") : old.date;
-        time = state != null ? state.getString("time") : old == null ? requireArguments().getString("time", "09:00") : old.time;
+        String defaultTime = "note".equals(type)
+                ? new java.text.SimpleDateFormat("HH:mm", Locale.ROOT).format(new java.util.Date()) : "09:00";
+        time = state != null ? state.getString("time") : old == null ? requireArguments().getString("time", defaultTime) : old.time;
         Button dateButton = view.findViewById(R.id.entryDate);
         Button timeButton = view.findViewById(R.id.entryTime);
         dateButton.setText(date); timeButton.setText(time);
