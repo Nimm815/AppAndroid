@@ -55,7 +55,6 @@ public class WorkspaceController {
             final int index = i;
             activity.findViewById(nav[i]).setOnClickListener(v -> selectTab(index));
         }
-        click(R.id.addNote, activity::createTask);
         
         click(R.id.addEvent, () -> editor("event", null, day(calendarDay)));
         click(R.id.openTimer, this::timer);
@@ -97,7 +96,7 @@ public class WorkspaceController {
             if (searchView.getVisibility() == View.VISIBLE) searchView.requestFocus();
         });
         click(R.id.journalMore, () -> new AlertDialog.Builder(activity).setTitle("Nhật ký hoạt động")
-                .setItems(new String[]{"Chọn ngày", "Tất cả ngày đã qua", "Thêm công việc", "Xem ghi chú cũ"}, (dialog, which) -> {
+                .setItems(new String[]{"Chọn ngày", "Tất cả ngày đã qua", "Xem ghi chú cũ"}, (dialog, which) -> {
                     if (which == 0) {
                         Calendar date = Calendar.getInstance(); date.add(Calendar.DAY_OF_MONTH, -1);
                         DatePickerDialog picker = new DatePickerDialog(activity, (view, year, month, day) -> {
@@ -105,7 +104,6 @@ public class WorkspaceController {
                         }, date.get(Calendar.YEAR), date.get(Calendar.MONTH), date.get(Calendar.DAY_OF_MONTH));
                         picker.getDatePicker().setMaxDate(System.currentTimeMillis()); picker.show();
                     } else if (which == 1) { journalDate = ""; refreshJournal(); }
-                    else if (which == 2) activity.createTask();
                     else {
                         List<LocalStore.Entry> notes = store.entries("note");
                         if (notes.isEmpty()) { Toast.makeText(activity, "Không có ghi chú cũ", Toast.LENGTH_SHORT).show(); return; }

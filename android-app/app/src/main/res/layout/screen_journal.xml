@@ -14,9 +14,8 @@
         </LinearLayout>
         <EditText android:id="@+id/journalSearch" android:layout_width="match_parent" android:layout_height="48dp" android:background="@color/workspace_surface" android:padding="12dp" android:visibility="gone" android:hint="Tìm công việc hoặc thói quen" android:inputType="text" android:singleLine="true" />
         <TextView android:id="@+id/journalSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingStart="16dp" android:paddingTop="8dp" android:textSize="12sp" android:textColor="@color/workspace_muted" />
-        <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true" android:clipToPadding="false" android:padding="8dp" android:paddingBottom="88dp">
+        <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true" android:clipToPadding="false" android:padding="8dp">
             <LinearLayout android:id="@+id/journalEntries" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
         </ScrollView>
     </LinearLayout>
-    <TextView android:id="@+id/addNote" style="@style/AddButton" android:layout_width="64dp" android:layout_height="64dp" android:layout_margin="16dp" android:background="@drawable/add_circle" android:textSize="38sp" android:contentDescription="Thêm công việc ở Trang chủ" />
 </FrameLayout>
