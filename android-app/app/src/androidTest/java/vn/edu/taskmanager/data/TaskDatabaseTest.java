@@ -19,12 +19,12 @@ public class TaskDatabaseTest {
         old.execSQL("INSERT INTO tasks VALUES (23,'Giữ công việc cũ',1,'2026-10-05',1234)");
         old.setVersion(2); old.close();
         TaskDatabase db = Room.databaseBuilder(context, TaskDatabase.class, name)
-                .addMigrations(TaskDatabase.MIGRATION_2_3).build();
+                .addMigrations(TaskDatabase.MIGRATION_2_3, TaskDatabase.MIGRATION_3_4).build();
         try {
             Task task = db.taskDao().findById(23);
             assertEquals("Giữ công việc cũ", task.title); assertTrue(task.completed);
             assertEquals("2026-10-05", task.scheduledDate); assertEquals(1234, task.createdAt);
-            assertEquals(2, task.priority);
+            assertEquals(2, task.priority); assertEquals(100, task.progress); assertEquals("", task.note);
             for (int priority = 1; priority <= 4; priority++) {
                 db.taskDao().editWithPriority(23, task.title, task.scheduledDate, priority);
                 db.close();
@@ -44,7 +44,7 @@ public class TaskDatabaseTest {
         old.execSQL("INSERT INTO tasks (id,title,completed) VALUES (17,'Công việc cũ',1)");
         old.setVersion(1); old.close();
         TaskDatabase db = Room.databaseBuilder(context, TaskDatabase.class, name)
-                .addMigrations(TaskDatabase.MIGRATION_1_2, TaskDatabase.MIGRATION_2_3).build();
+                .addMigrations(TaskDatabase.MIGRATION_1_2, TaskDatabase.MIGRATION_2_3, TaskDatabase.MIGRATION_3_4).build();
         try {
             Task task = db.taskDao().findById(17);
             assertEquals("Công việc cũ", task.title); assertTrue(task.completed);
@@ -84,7 +84,10 @@ public class TaskDatabaseTest {
             db = Room.databaseBuilder(context, TaskDatabase.class, name).build();
             assertEquals("Học Android", db.taskDao().findById(id).title);
             assertFalse(db.taskDao().findById(id).completed);
-            db.taskDao().rename(id, "Ôn Room");
+            db.taskDao().editDetails(id, "Ôn Room", "2026-10-09", 2, 50, "Đã đọc một nửa");
+            assertEquals(50, db.taskDao().findById(id).progress);
+            assertFalse(db.taskDao().findById(id).completed);
+            assertEquals("Đã đọc một nửa", db.taskDao().findById(id).note);
             db.taskDao().setCompleted(id, true);
             assertEquals("Ôn Room", db.taskDao().findById(id).title);
             assertTrue(db.taskDao().findById(id).completed);

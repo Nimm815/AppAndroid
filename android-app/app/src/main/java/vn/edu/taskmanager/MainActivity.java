@@ -33,6 +33,17 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     private String query = "";
     private String listId = "";
     private WorkspaceController workspace;
+    private final android.os.Handler dayHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable dayCheck = new Runnable() {
+        @Override public void run() { if (workspace != null) workspace.checkDayChange(); dayHandler.postDelayed(this, 30000); }
+    };
+    @Override protected void onResume() {
+        super.onResume();
+        if (workspace != null) { workspace.checkDayChange(); workspace.refresh(); }
+        dayHandler.removeCallbacks(dayCheck); dayHandler.postDelayed(dayCheck, 30000);
+    }
+    @Override protected void onPause() { dayHandler.removeCallbacks(dayCheck); super.onPause(); }
+
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -52,6 +63,7 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
             allDates = state.getBoolean("allDates", false);
         }
         workspace = new WorkspaceController(this, state);
+        model.getHistoryChanged().observe(this, ignored -> workspace.refresh());
         model.tasks.observe(this, tasks -> {
             allTasks = tasks;
             workspace.updateTasks(tasks);

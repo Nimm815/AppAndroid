@@ -11,6 +11,12 @@ public interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY completed ASC, id DESC")
     LiveData<List<Task>> observeTasks();
 
+    @Query("SELECT * FROM tasks")
+    List<Task> allTasks();
+
+    @Query("UPDATE tasks SET title = :title, scheduledDate = :date, priority = :priority, progress = :progress, note = :note, completed = CASE WHEN :progress = 100 THEN 1 ELSE 0 END WHERE id = :id")
+    void editDetails(long id, String title, String date, int priority, int progress, String note);
+
     @Insert
     long insert(Task task);
 
@@ -21,7 +27,7 @@ public interface TaskDao {
     @Query("UPDATE tasks SET title = :title, scheduledDate = :date, priority = :priority WHERE id = :id")
     void editWithPriority(long id, String title, String date, int priority);
 
-    @Query("UPDATE tasks SET completed = :completed WHERE id = :id")
+    @Query("UPDATE tasks SET completed = :completed, progress = CASE WHEN :completed THEN 100 ELSE 0 END WHERE id = :id")
     void setCompleted(long id, boolean completed);
 
     @Query("DELETE FROM tasks WHERE id = :id")

@@ -49,3 +49,10 @@ Sau đó cho tôi biết bước đầu tiên cần làm với dự án hiện c
 - Bản hiện tại ưu tiên đầy đủ các màn hình Android và thao tác cục bộ;
   đăng nhập, đồng bộ, Spring Boot, FastAPI và ReactJS vẫn thuộc giai đoạn sau.
 - Giữ dữ liệu công việc Room hiện có khi thay giao diện; không gỡ app/xóa dữ liệu để cập nhật.
+
+## Nhật ký hoạt động
+- Nhật ký là lịch sử công việc và thói quen theo từng ngày, gồm ghi chú kết quả và mức hoàn thành; không thiết kế như trang viết nhật ký tự do.
+- Tham khảo ảnh mẫu: thẻ ghi chú, ngày giờ, nhãn hoạt động, mức hoàn thành và menu tùy chọn.
+- Ghi nhận thay đổi hoàn thành tự động; giữ ghi chú cũ và dữ liệu Room, không suy đoán thời điểm hoàn thành của dữ liệu trước khi có lịch sử.
+
+- Làm rõ: Nhật ký tự tổng hợp toàn bộ công việc/thói quen của từng ngày đã qua từ Trang chủ, gồm chưa làm (0%), làm một phần và hoàn thành (100%). Mỗi ngày có tỷ lệ tổng hợp; kết quả ngày cũ phải giữ nguyên khi xử lý công việc vào ngày sau.

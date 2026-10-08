@@ -1,23 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/workspace_canvas">
-    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:paddingBottom="96dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
-                <TextView android:id="@+id/journalToday" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textSize="20sp" android:textStyle="bold" android:textColor="@color/workspace_text" />
-                <ImageButton android:id="@+id/journalMore" style="@style/IconButton" app:srcCompat="@drawable/ic_more" android:contentDescription="Tìm kiếm và tùy chọn nhật ký" />
-            </LinearLayout>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Bạn muốn ghi lại điều gì hôm nay?" android:textSize="14sp" android:textColor="@color/workspace_muted" />
-            <TextView android:id="@+id/journalQuickWrite" android:layout_width="match_parent" android:layout_height="56dp" android:layout_marginTop="14dp" android:layout_marginBottom="12dp" android:background="@drawable/journal_card" android:foreground="?attr/selectableItemBackground" android:gravity="center_vertical" android:paddingStart="18dp" android:paddingEnd="18dp" android:text="Viết nhật ký hôm nay..." android:textSize="15sp" android:textColor="@color/workspace_muted" android:clickable="true" android:focusable="true" />
-            <LinearLayout android:id="@+id/journalTools" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:visibility="gone">
-                <ImageButton android:id="@+id/journalBookmark" style="@style/IconButton" app:srcCompat="@drawable/ic_bookmark" android:contentDescription="Lọc bài đã đánh dấu" />
-                <ImageButton android:id="@+id/journalSearchToggle" style="@style/IconButton" app:srcCompat="@drawable/ic_search" android:contentDescription="Tìm nhật ký" />
-                <Button android:id="@+id/journalFilter" style="@style/FlatButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textSize="13sp" />
-                <Button android:id="@+id/journalItems" style="@style/FlatButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="6dp" android:textSize="13sp" />
-            </LinearLayout>
-            <EditText android:id="@+id/journalSearch" android:layout_width="match_parent" android:layout_height="48dp" android:visibility="gone" android:hint="@string/search_notes" android:inputType="text" android:singleLine="true" />
-            <TextView android:id="@+id/journalSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" android:textSize="13sp" android:textColor="@color/workspace_muted" />
-            <LinearLayout android:id="@+id/journalEntries" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="72dp" android:padding="12dp" android:background="@color/workspace_surface" android:gravity="center_vertical">
+            <ImageButton android:id="@+id/journalBookmark" style="@style/IconButton" app:srcCompat="@drawable/ic_bookmark" android:contentDescription="Lọc kết quả đã đánh dấu" />
+            <TextView android:id="@+id/journalToday" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Nhật ký" android:textSize="22sp" android:gravity="center" android:textStyle="bold" android:textColor="@color/workspace_text" />
+            <ImageButton android:id="@+id/journalMore" style="@style/IconButton" app:srcCompat="@drawable/ic_more" android:contentDescription="Chọn ngày và tùy chọn Nhật ký" />
         </LinearLayout>
-    </ScrollView>
-    <TextView android:id="@+id/addNote" style="@style/AddButton" android:layout_width="56dp" android:layout_height="56dp" android:layout_margin="16dp" android:textSize="34sp" />
+        <LinearLayout android:id="@+id/journalTools" android:layout_width="match_parent" android:layout_height="64dp" android:background="@color/workspace_surface" android:paddingStart="12dp" android:paddingEnd="12dp" android:paddingBottom="12dp" android:gravity="center_vertical">
+            <ImageButton android:id="@+id/journalSearchToggle" style="@style/IconButton" android:background="@drawable/control_gray" app:srcCompat="@drawable/ic_search" android:contentDescription="Tìm công việc trong lịch sử" />
+            <View android:layout_width="1dp" android:layout_height="36dp" android:layout_marginStart="8dp" android:layout_marginEnd="8dp" android:background="@color/workspace_line" />
+            <Button android:id="@+id/journalFilter" style="@style/FlatButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Tất cả nhãn  ﹀" android:textSize="13sp" />
+            <Button android:id="@+id/journalItems" style="@style/FlatButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="6dp" android:text="Tất cả mục  ﹀" android:textSize="13sp" />
+        </LinearLayout>
+        <EditText android:id="@+id/journalSearch" android:layout_width="match_parent" android:layout_height="48dp" android:background="@color/workspace_surface" android:padding="12dp" android:visibility="gone" android:hint="Tìm công việc hoặc thói quen" android:inputType="text" android:singleLine="true" />
+        <TextView android:id="@+id/journalSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingStart="16dp" android:paddingTop="8dp" android:textSize="12sp" android:textColor="@color/workspace_muted" />
+        <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true" android:clipToPadding="false" android:padding="8dp" android:paddingBottom="88dp">
+            <LinearLayout android:id="@+id/journalEntries" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        </ScrollView>
+    </LinearLayout>
+    <TextView android:id="@+id/addNote" style="@style/AddButton" android:layout_width="64dp" android:layout_height="64dp" android:layout_margin="16dp" android:background="@drawable/add_circle" android:textSize="38sp" android:contentDescription="Thêm công việc ở Trang chủ" />
 </FrameLayout>

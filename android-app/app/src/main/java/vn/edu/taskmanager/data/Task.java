@@ -12,6 +12,10 @@ public class Task {
     @NonNull
     public String title = "";
     public boolean completed;
+    @ColumnInfo(defaultValue = "0")
+    public int progress;
+    @NonNull @ColumnInfo(defaultValue = "''")
+    public String note = "";
     // ISO yyyy-MM-dd; rỗng nghĩa là chưa lên lịch (bao gồm dữ liệu cũ).
     @NonNull @ColumnInfo(defaultValue = "''")
     public String scheduledDate = "";

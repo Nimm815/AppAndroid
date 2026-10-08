@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider;
 // DialogFragment giữ hộp thoại và nội dung đang nhập khi xoay điện thoại.
 public class TaskEditorDialog extends DialogFragment {
     private String scheduledDate;
+    private EditText progressInput, noteInput;
     private android.widget.Spinner priorityInput;
     public static TaskEditorDialog newInstance(long id, String title, String date) {
         return newInstance(id, title, date, 2);
@@ -31,6 +32,13 @@ public class TaskEditorDialog extends DialogFragment {
         long id = requireArguments().getLong("id");
         View view = requireActivity().getLayoutInflater().inflate(R.layout.dialog_task, null);
         EditText input = view.findViewById(R.id.taskNameInput);
+        progressInput = view.findViewById(R.id.taskProgressInput);
+        noteInput = view.findViewById(R.id.taskNoteInput);
+        vn.edu.taskmanager.data.Task current = null;
+        java.util.List<vn.edu.taskmanager.data.Task> tasks = new ViewModelProvider(requireActivity()).get(TaskViewModel.class).tasks.getValue();
+        if (tasks != null) for (vn.edu.taskmanager.data.Task task : tasks) if (task.id == id) current = task;
+        progressInput.setText(state != null ? state.getString("progress", "0") : String.valueOf(current == null ? 0 : current.completed ? 100 : current.progress));
+        noteInput.setText(state != null ? state.getString("note", "") : current == null ? "" : current.note);
         priorityInput = view.findViewById(R.id.taskPriority);
         android.widget.ArrayAdapter<String> choices = new android.widget.ArrayAdapter<String>(requireContext(),
                 android.R.layout.simple_spinner_dropdown_item, TaskPriority.LABELS) {
@@ -114,7 +122,12 @@ public class TaskEditorDialog extends DialogFragment {
                         android.widget.Toast.makeText(requireContext(), "Ngày thực hiện không được ở quá khứ", android.widget.Toast.LENGTH_LONG).show();
                         return;
                     }
-                    new ViewModelProvider(requireActivity()).get(TaskViewModel.class).save(id, title, scheduledDate, priorityInput.getSelectedItemPosition() + 1);
+                    int progress;
+                    try { progress = Integer.parseInt(progressInput.getText().toString().trim()); }
+                    catch (NumberFormatException error) { progressInput.setError("Nhập số từ 0 đến 100"); return; }
+                    if (progress < 0 || progress > 100) { progressInput.setError("Nhập số từ 0 đến 100"); return; }
+                    new ViewModelProvider(requireActivity()).get(TaskViewModel.class).save(id, title, scheduledDate,
+                            priorityInput.getSelectedItemPosition() + 1, progress, noteInput.getText().toString().trim());
                     ((MainActivity) requireActivity()).taskSaved(scheduledDate);
                     dismiss();
                 }));
@@ -123,6 +136,8 @@ public class TaskEditorDialog extends DialogFragment {
 
     @Override public void onSaveInstanceState(@NonNull Bundle out) {
         super.onSaveInstanceState(out);
+        out.putString("progress", progressInput.getText().toString());
+        out.putString("note", noteInput.getText().toString());
         out.putString("date", scheduledDate);
         out.putInt("priority", priorityInput.getSelectedItemPosition() + 1);
         if (getDialog() != null) {
