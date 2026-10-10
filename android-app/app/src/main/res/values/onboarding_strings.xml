@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_welcome">Chào bạn!</string>
+    <string name="onboarding_home_title">Trang chủ · Công việc và thói quen</string>
+    <string name="onboarding_home_description">Xem công việc và thói quen trong ngày, cùng những công việc còn quá hạn.</string>
+    <string name="onboarding_home_tip">① Chọn ngày ở hàng phía trên.\n② Chạm + để thêm; chạm tên để chỉnh sửa.\n③ Chạm ô bên phải để đánh dấu hoàn thành. Menu ☰ giúp chọn danh sách và bộ lọc.</string>
+    <string name="onboarding_calendar_title">Lịch · Sắp xếp ngày của bạn</string>
+    <string name="onboarding_calendar_description">Xem lịch theo ngày và giờ để sắp xếp các sự kiện của bạn.</string>
+    <string name="onboarding_calendar_tip">① Chọn ngày hoặc dùng mũi tên để đổi tuần.\n② Chạm + để tạo sự kiện.\n③ Chạm sự kiện để chỉnh sửa hoặc xóa.</string>
+    <string name="onboarding_settings_title">Cài đặt · Tùy chỉnh ứng dụng</string>
+    <string name="onboarding_settings_description">Đổi giao diện, quản lý danh sách, mở bộ hẹn giờ và xem báo cáo.</string>
+    <string name="onboarding_settings_tip">① Chọn giao diện Sáng, Tối hoặc Theo hệ thống.\n② Mở Bộ hẹn giờ để tập trung làm việc.\n③ Chọn Xem lại hướng dẫn ban đầu bất cứ khi nào cần. Hiện tại không cần tài khoản.</string>
+    <string name="onboarding_screenshot_description">Ảnh giao diện %1$s</string>
+    <string name="onboarding_screenshot_note">Ảnh giao diện thực tế · dữ liệu trong ảnh dùng để minh họa</string>
+    <string name="onboarding_skip">Bỏ qua</string>
+    <string name="onboarding_next">Tiếp</string>
+    <string name="onboarding_previous">Quay lại</string>
+    <string name="onboarding_start">Bắt đầu</string>
+    <string name="onboarding_replay">Xem lại hướng dẫn ban đầu</string>
+    <string name="onboarding_progress">Bước %1$d / %2$d</string>
+    <string name="onboarding_journal_title">Nhật ký · Kết quả từng ngày</string>
+    <string name="onboarding_journal_description">Nhật ký tổng hợp công việc và thói quen của những ngày đã qua, gồm cả mục chưa làm, làm một phần và hoàn thành.</string>
+    <string name="onboarding_journal_tip">① Mở tab Nhật ký ở thanh phía dưới.\n② Tìm kiếm hoặc lọc theo nhãn và trạng thái.\n③ Xem tỷ lệ từng ngày và ghi chú của mỗi hoạt động.</string>
+</resources>

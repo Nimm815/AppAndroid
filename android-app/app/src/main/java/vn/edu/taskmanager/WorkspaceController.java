@@ -63,6 +63,9 @@ public class WorkspaceController {
         click(R.id.settingsReport, this::report);
         click(R.id.manageLists, this::manageCollections);
         click(R.id.settingsSearch, this::globalSearch);
+        click(R.id.replayOnboarding, () -> activity.startActivity(
+                new android.content.Intent(activity, OnboardingActivity.class)
+                        .putExtra(OnboardingActivity.EXTRA_REPLAY, true)));
         click(R.id.help, () -> new AlertDialog.Builder(activity).setTitle(R.string.help)
                 .setMessage("Công việc: chạm + để thêm; chạm tên để sửa/xóa, chạm ô bên phải để hoàn thành.\n\n"
                         + "Menu ☰: chọn công việc, thói quen, danh sách hoặc bộ lọc.\n\n"

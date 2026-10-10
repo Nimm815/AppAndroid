@@ -56,3 +56,9 @@ Sau đó cho tôi biết bước đầu tiên cần làm với dự án hiện c
 - Ghi nhận thay đổi hoàn thành tự động; giữ ghi chú cũ và dữ liệu Room, không suy đoán thời điểm hoàn thành của dữ liệu trước khi có lịch sử.
 
 - Làm rõ: Nhật ký tự tổng hợp toàn bộ công việc/thói quen của từng ngày đã qua từ Trang chủ, gồm chưa làm (0%), làm một phần và hoàn thành (100%). Mỗi ngày có tỷ lệ tổng hợp; kết quả ngày cũ phải giữ nguyên khi xử lý công việc vào ngày sau.
+
+## Hướng dẫn lần đầu
+- Luồng hiện tại: mở lần đầu → hướng dẫn → Trang chủ; các lần sau vào Trang chủ. Chưa đưa đăng nhập vào luồng sử dụng.
+- Lưu riêng `onboarding_completed` trong SharedPreferences `app_preferences`, không coi đây là trạng thái đăng nhập.
+- Bốn trang giới thiệu Trang chủ (công việc và thói quen), Nhật ký, Lịch và Cài đặt; có thể xem lại từ Cài đặt mà không xóa dữ liệu.
+- Dùng ảnh chụp thực tế các màn hình chính của app, kèm chú thích XML để người dùng hình dung giao diện. Không thay bằng các thẻ ví dụ chung chung.

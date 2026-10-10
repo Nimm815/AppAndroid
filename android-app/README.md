@@ -176,3 +176,19 @@ lịch bên ngoài hoặc gói Premium. Spring Boot, FastAPI và ReactJS triển
 
 Nếu Gradle không tải được plugin trong Terminal của Codex, mở Android Studio với
 Gradle JDK 17/21 và Sync/Run. Không cần đổi phiên bản plugin hoặc gỡ app chỉ để cập nhật giao diện.
+# Hướng dẫn lần đầu
+
+App mở `OnboardingActivity` trước: nếu chưa có `onboarding_completed = true`
+trong SharedPreferences `app_preferences`, hiển thị bốn trang có ảnh chụp thực tế:
+Trang chủ, Nhật ký, Lịch và Cài đặt. Bấm **Bỏ qua** hoặc **Bắt đầu** sẽ lưu trạng thái rồi vào Trang chủ.
+Các lần mở tiếp theo vào thẳng Trang chủ, chưa cần đăng nhập.
+
+- `OnboardingActivity.java`: chuyển trang, lưu trạng thái và mở Trang chủ.
+- `res/layout/activity_onboarding.xml`: ảnh giao diện, chú thích và các nút.
+- `res/drawable-nodpi/onboarding_*.png`: ảnh chụp các màn hình chính từ máy ảo.
+- `res/values/onboarding_strings.xml`: nội dung hướng dẫn bằng tiếng Việt.
+- Trong **Cài đặt → Xem lại hướng dẫn ban đầu**, có thể mở lại hướng dẫn.
+
+Ảnh minh họa không tạo công việc hoặc thay đổi dữ liệu Room. Cài bản cập nhật
+đè lên app hiện có; không gỡ app hoặc xóa dữ liệu để xem hướng dẫn.
+

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@color/workspace_page">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="16dp" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="@string/onboarding_welcome"
+            android:textSize="18sp" android:textStyle="bold" android:textColor="@color/workspace_text" />
+        <Button android:id="@+id/onboardingSkip" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:minHeight="48dp"
+            android:text="@string/onboarding_skip" android:textAllCaps="false" />
+    </LinearLayout>
+    <ScrollView android:id="@+id/onboardingScroll" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:gravity="center" android:padding="16dp">
+            <TextView android:id="@+id/onboardingTitle" android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center" android:textSize="22sp" android:textStyle="bold"
+                android:textColor="@color/workspace_text" />
+            <TextView android:id="@+id/onboardingDescription" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                android:gravity="center" android:textSize="15sp" android:lineSpacingExtra="2dp"
+                android:textColor="@color/workspace_muted" />
+            <ImageView android:id="@+id/onboardingScreenshot" android:layout_width="match_parent"
+                android:layout_height="360dp" android:layout_marginTop="16dp"
+                android:scaleType="fitCenter" android:background="@drawable/onboarding_frame"
+                android:padding="8dp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="8dp" android:gravity="center" android:textSize="12sp"
+                android:text="@string/onboarding_screenshot_note" android:textColor="@color/workspace_muted" />
+            <TextView android:id="@+id/onboardingTip" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                android:textSize="15sp" android:lineSpacingExtra="4dp"
+                android:textColor="@color/workspace_accent" />
+        </LinearLayout>
+    </ScrollView>
+    <TextView android:id="@+id/onboardingProgress" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:gravity="center" android:padding="8dp"
+        android:accessibilityLiveRegion="polite" android:textColor="@color/workspace_muted" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="16dp" android:gravity="center_vertical">
+        <Button android:id="@+id/onboardingPrevious" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:minHeight="52dp"
+            android:text="@string/onboarding_previous" android:textAllCaps="false" />
+        <Button android:id="@+id/onboardingNext" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:minHeight="52dp"
+            android:layout_marginStart="12dp" android:textAllCaps="false"
+            android:textColor="#FFFFFF" android:backgroundTint="@color/workspace_accent"
+            android:text="@string/onboarding_next" />
+    </LinearLayout>
+</LinearLayout>
