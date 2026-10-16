@@ -1,50 +1,25 @@
 # Backend Spring Boot
 
-Backend REST API riêng cho ứng dụng Android. Java 17, Spring Boot, Spring Data JPA và MySQL.
+Giai đoạn hiện tại chỉ khởi động server và kiểm tra kết nối tới MySQL. Chưa có API nghiệp vụ.
 
-## Kết nối MySQL
+## Chạy backend
 
-1. Tạo database từ `database/task_management_app.sql` nếu bạn chưa có database. File này dùng `CREATE TABLE IF NOT EXISTS`, không xóa bảng hiện có.
-2. Mở PowerShell trong thư mục `backend-spring` và đặt thông tin kết nối trong phiên hiện tại:
-
-```powershell
-$env:DB_URL = "jdbc:mysql://localhost:3306/task_management_app?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-$env:DB_USERNAME = "root"
-$env:DB_PASSWORD = "MẬT_KHẨU_MYSQL_CỦA_BẠN"
-```
-
-Không commit mật khẩu. Có thể thay host, port, tên database và username theo cấu hình MySQL của bạn.
-
-3. Cần JDK 17 và Maven cài trên máy, chạy:
+Mở PowerShell tại thư mục gốc `C:\PTUDAndroid` và chạy một lệnh:
 
 ```powershell
-mvn spring-boot:run
+.\backend-spring\mvnw.cmd -f .\backend-spring\pom.xml spring-boot:run
 ```
 
-Ứng dụng chạy tại `http://localhost:8080`. Hibernate được cấu hình `ddl-auto=validate`: chỉ đối chiếu schema, không tự tạo/sửa/xóa bảng. Nếu thiếu bảng/cột hoặc sai kiểu dữ liệu, ứng dụng sẽ báo lỗi khi khởi động.
+Maven Wrapper tự tải Maven 3.10.0 nếu máy chưa có, nên không cần cài Maven toàn máy. Lần đầu cần Internet để tải Maven và các thư viện. Tài khoản/mật khẩu MySQL đọc từ `backend-spring/src/main/resources/application.properties`; các thành viên cần cấu hình file này theo cùng database.
 
-## API công việc ban đầu
+Server dùng cổng 8082 mặc định để tránh các phiên backend cũ đang giữ 8080/8081. Nếu cổng bị chiếm, dừng server cũ bằng `Ctrl+C` hoặc đặt `SERVER_PORT` khác trước khi chạy.
 
-Tạm thời API nhận `userId` trong đường dẫn vì đăng nhập chưa được xây dựng. Đây là cách thử nghiệm cho máy cá nhân, chưa phải cơ chế xác thực/phân quyền để triển khai thật.
+## Kiểm tra kết nối database
 
-- `GET /api/users/{userId}/tasks` — danh sách công việc
-- `GET /api/users/{userId}/tasks/{taskId}` — xem một công việc
-- `POST /api/users/{userId}/tasks` — tạo công việc
-- `PUT /api/users/{userId}/tasks/{taskId}` — cập nhật
-- `DELETE /api/users/{userId}/tasks/{taskId}` — xóa
+Khi thấy log `✅ KẾT NỐI BACKEND VÀ MYSQL THÀNH CÔNG`, backend đã sẵn sàng. Có thể kiểm tra bằng PowerShell mới:
 
-Ví dụ nội dung POST:
-
-```json
-{
-  "userId": 1,
-  "title": "Hoàn thành bài tập Android",
-  "description": "Làm màn hình danh sách",
-  "priority": "HIGH",
-  "status": "TODO",
-  "progress": 0,
-  "dueDate": "2026-10-20T18:00:00"
-}
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8082/api/health/database"
 ```
 
-`userId` phải tồn tại trong bảng `users` do khóa ngoại của MySQL kiểm tra. Trước khi kết nối app hoặc đưa lên máy chủ, cần thay cách truyền `userId` bằng xác thực người dùng phù hợp.
+Kết quả thành công có trạng thái `connected` và tên database. Hibernate đặt `ddl-auto=validate`, chỉ kiểm tra schema, không tự sửa hay xóa bảng.
