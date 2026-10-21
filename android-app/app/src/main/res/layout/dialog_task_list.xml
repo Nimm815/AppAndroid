@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:padding="20dp">
+    <EditText android:id="@+id/taskListName" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:minHeight="52dp" android:maxLength="100"
+        android:inputType="textCapSentences" android:singleLine="true" android:hint="@string/task_list_name" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="16dp" android:text="@string/choose_list_tasks" android:textStyle="bold"
+        android:textColor="@color/workspace_text" android:textSize="15sp" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="6dp" android:text="@string/choose_list_tasks_detail"
+        android:textColor="@color/workspace_muted" android:textSize="13sp" />
+    <TextView android:id="@+id/taskListEmpty" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:paddingTop="16dp" android:text="@string/task_list_empty_choices" />
+    <ScrollView android:layout_width="match_parent" android:layout_height="220dp" android:layout_marginTop="8dp">
+        <LinearLayout android:id="@+id/taskListChoices" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="vertical" />
+    </ScrollView>
+    <TextView android:id="@+id/taskListError" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:accessibilityLiveRegion="polite" android:visibility="gone" android:paddingTop="8dp" />
+</LinearLayout>

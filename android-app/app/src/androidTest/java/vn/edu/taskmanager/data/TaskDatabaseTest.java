@@ -19,7 +19,7 @@ public class TaskDatabaseTest {
         old.execSQL("INSERT INTO tasks VALUES (23,'Giữ công việc cũ',1,'2026-10-05',1234)");
         old.setVersion(2); old.close();
         TaskDatabase db = Room.databaseBuilder(context, TaskDatabase.class, name)
-                .addMigrations(TaskDatabase.MIGRATION_2_3, TaskDatabase.MIGRATION_3_4).build();
+                .addMigrations(TaskDatabase.MIGRATION_2_3, TaskDatabase.MIGRATION_3_4, TaskDatabase.MIGRATION_4_5, TaskDatabase.MIGRATION_5_6).build();
         try {
             Task task = db.taskDao().findById(23);
             assertEquals("Giữ công việc cũ", task.title); assertTrue(task.completed);
@@ -44,7 +44,7 @@ public class TaskDatabaseTest {
         old.execSQL("INSERT INTO tasks (id,title,completed) VALUES (17,'Công việc cũ',1)");
         old.setVersion(1); old.close();
         TaskDatabase db = Room.databaseBuilder(context, TaskDatabase.class, name)
-                .addMigrations(TaskDatabase.MIGRATION_1_2, TaskDatabase.MIGRATION_2_3, TaskDatabase.MIGRATION_3_4).build();
+                .addMigrations(TaskDatabase.MIGRATION_1_2, TaskDatabase.MIGRATION_2_3, TaskDatabase.MIGRATION_3_4, TaskDatabase.MIGRATION_4_5, TaskDatabase.MIGRATION_5_6).build();
         try {
             Task task = db.taskDao().findById(17);
             assertEquals("Công việc cũ", task.title); assertTrue(task.completed);
