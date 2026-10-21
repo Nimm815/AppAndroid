@@ -269,7 +269,8 @@ public class WorkspaceTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 activity.findViewById(R.id.navJournal).performClick();
-                activity.findViewById(R.id.addNote).performClick();
+                EntryEditorDialog.create("note", null, LocalStore.today())
+                        .show(activity.getSupportFragmentManager(), "entry_editor");
                 activity.getSupportFragmentManager().executePendingTransactions();
                 EntryEditorDialog editor = (EntryEditorDialog) activity.getSupportFragmentManager().findFragmentByTag("entry_editor");
                 ((android.widget.EditText) editor.requireDialog().findViewById(R.id.entryTitle)).setText("Bản nháp chưa lưu");

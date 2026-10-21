@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp" android:background="@drawable/task_card"
+    android:gravity="center_vertical" android:padding="8dp">
+    <LinearLayout android:id="@+id/openTaskList" android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:minHeight="64dp" android:orientation="vertical"
+        android:gravity="center_vertical" android:padding="8dp" android:clickable="true"
+        android:focusable="true" android:background="?attr/selectableItemBackground">
+        <TextView android:id="@+id/taskListTitle" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="16sp" android:textStyle="bold" android:textColor="@color/workspace_text"
+            android:maxLines="2" android:ellipsize="end" />
+        <TextView android:id="@+id/taskListCount" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:textSize="12sp" android:textColor="@color/workspace_muted" />
+    </LinearLayout>
+    <ImageButton android:id="@+id/taskListEdit" style="@style/IconButton"
+        android:layout_width="48dp" android:layout_height="48dp" app:srcCompat="@drawable/ic_more"
+        android:contentDescription="@string/edit_task_list" />
+</LinearLayout>

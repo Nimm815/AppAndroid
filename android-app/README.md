@@ -1,5 +1,21 @@
 # App quản lý công việc cá nhân
 
+## Quản lý danh sách công việc (Room, schema 6)
+
+- Menu ☰ → Quản lý danh sách / bộ lọc → Tạo danh sách: nhập tên, chọn công việc đã có hoặc để danh sách trống.
+- Chạm danh sách để mở. Nút + trong danh sách tạo công việc mới và tự đưa vào danh sách đó.
+- Chạm Sửa danh sách hoặc nút ⋯ của danh sách để đổi tên, chọn/bỏ chọn thành viên hoặc xóa danh sách.
+- Xóa danh sách/bỏ chọn thành viên không xóa công việc. Xóa công việc có xác nhận sẽ xóa việc khỏi mọi danh sách.
+- Số việc hoàn thành cập nhật tự động; mỗi công việc chỉ thuộc một danh sách riêng. Chọn công việc ở danh sách khác rồi lưu sẽ chuyển công việc sang danh sách đang sửa. Công việc vẫn hiện trong các chế độ tổng hợp như Tất cả công việc/Hôm nay.
+- Migration 5→6 thêm ràng buộc duy nhất theo công việc. Nếu dữ liệu bản cũ có liên kết trùng, giữ danh sách tạo mới nhất (cùng thời điểm thì chọn ID giảm dần); giữ nguyên công việc và tất cả danh sách. Không suy đoán lần chuyển gần nhất vì bản cũ chưa lưu thông tin này.
+- Room lưu `task_lists` và `task_list_members` cùng database `personal_tasks.db`. Migration 4→5 giữ nguyên bảng công việc.
+- Lần mở sau cập nhật, `LegacyTaskListImporter` nhập danh sách JSON cũ một lần trong transaction, giữ ID và nguồn JSON cũ. Dấu nhập xong nằm trong Room nên danh sách đã xóa không bị nhập lại.
+- Bộ lọc, thói quen, lịch, nhật ký và cài đặt vẫn dùng cơ chế hiện có. Các mô tả SharedPreferences cho danh sách ở phần lịch sử bên dưới đã được thay thế bởi phần này.
+- Cập nhật đè ứng dụng, không gỡ app/xóa dữ liệu. Kiểm tra trên điện thoại: tạo việc trong A, mở Sửa danh sách B và chọn việc đó rồi lưu; việc biến mất khỏi A và xuất hiện ở B, giữ tên/tiến độ/ghi chú. Kiểm tra số hoàn thành ở cả hai danh sách và đóng/mở lại app.
+
+Kiểm tra build: `./gradlew.bat assembleDebug assembleDebugAndroidTest lintDebug`.
+`TaskListDatabaseTest` dùng database/SharedPreferences riêng để kiểm tra migration, liên kết, số hoàn thành, lưu lại và nhập dữ liệu cũ.
+
 Phiên bản đầu tiên dùng Java + XML, RecyclerView và Room. Có thêm, sửa tên,
 xóa (có xác nhận), đánh dấu hoàn thành và bỏ đánh dấu. Tên được bỏ khoảng trắng
 ở hai đầu và không được trống. Công việc chưa hoàn thành hiển thị trước.

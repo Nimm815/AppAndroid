@@ -126,8 +126,9 @@ public class TaskEditorDialog extends DialogFragment {
                     try { progress = Integer.parseInt(progressInput.getText().toString().trim()); }
                     catch (NumberFormatException error) { progressInput.setError("Nhập số từ 0 đến 100"); return; }
                     if (progress < 0 || progress > 100) { progressInput.setError("Nhập số từ 0 đến 100"); return; }
-                    new ViewModelProvider(requireActivity()).get(TaskViewModel.class).save(id, title, scheduledDate,
-                            priorityInput.getSelectedItemPosition() + 1, progress, noteInput.getText().toString().trim());
+                    new ViewModelProvider(requireActivity()).get(TaskViewModel.class).saveInList(id, title, scheduledDate,
+                            priorityInput.getSelectedItemPosition() + 1, progress, noteInput.getText().toString().trim(),
+                            requireArguments().getString("listId", ""));
                     ((MainActivity) requireActivity()).taskSaved(scheduledDate);
                     dismiss();
                 }));
