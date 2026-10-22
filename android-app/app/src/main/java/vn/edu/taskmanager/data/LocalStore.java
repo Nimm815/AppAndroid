@@ -135,4 +135,83 @@ public class LocalStore {
         } catch (JSONException error) { throw new IllegalStateException(error); }
         preferences.edit().putString("entries", array.toString()).apply();
     }
+
+    public List<Reminder> reminders() {
+        List<Reminder> result = new ArrayList<>();
+        try {
+            JSONArray array = new JSONArray(preferences.getString("reminders", "[]"));
+            for (int i = 0; i < array.length(); i++) {
+                result.add(Reminder.fromJson(array.getJSONObject(i)));
+            }
+        } catch (JSONException e) {
+            // Trả về rỗng nếu lỗi định dạng
+        }
+        return result;
+    }
+
+    public Reminder findReminder(String id) {
+        if (id == null) return null;
+        for (Reminder r : reminders()) {
+            if (id.equals(r.id)) return r;
+        }
+        return null;
+    }
+
+    public Reminder findReminderByEvent(String eventId) {
+        if (eventId == null || eventId.isEmpty()) return null;
+        for (Reminder r : reminders()) {
+            if (r.isFromEvent && eventId.equals(r.targetId)) return r;
+        }
+        return null;
+    }
+
+    public void saveReminder(Reminder reminder) {
+        synchronized (LocalStore.class) {
+            List<Reminder> all = reminders();
+            if (reminder.id == null || reminder.id.isEmpty()) {
+                reminder.id = UUID.randomUUID().toString();
+            }
+            for (int i = all.size() - 1; i >= 0; i--) {
+                if (all.get(i).id.equals(reminder.id)) {
+                    all.remove(i);
+                }
+            }
+            all.add(reminder);
+            writeReminders(all);
+        }
+    }
+
+    public void deleteReminder(String id) {
+        if (id == null) return;
+        synchronized (LocalStore.class) {
+            List<Reminder> all = reminders();
+            for (int i = all.size() - 1; i >= 0; i--) {
+                if (all.get(i).id.equals(id)) {
+                    all.remove(i);
+                }
+            }
+            writeReminders(all);
+        }
+    }
+
+    public void deleteReminderByEvent(String eventId) {
+        if (eventId == null || eventId.isEmpty()) return;
+        synchronized (LocalStore.class) {
+            List<Reminder> all = reminders();
+            for (int i = all.size() - 1; i >= 0; i--) {
+                if (all.get(i).isFromEvent && eventId.equals(all.get(i).targetId)) {
+                    all.remove(i);
+                }
+            }
+            writeReminders(all);
+        }
+    }
+
+    public void writeReminders(List<Reminder> all) {
+        JSONArray array = new JSONArray();
+        for (Reminder r : all) {
+            array.put(r.toJson());
+        }
+        preferences.edit().putString("reminders", array.toString()).apply();
+    }
 }
