@@ -4,3 +4,5 @@
 **/.idea/
 *.iml
 .verification/
+admin-web/node_modules/
+admin-web/dist/
