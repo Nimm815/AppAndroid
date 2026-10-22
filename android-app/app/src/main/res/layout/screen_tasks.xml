@@ -19,7 +19,10 @@
                 <TextView android:id="@+id/taskCount" android:layout_width="24dp" android:layout_height="wrap_content" android:gravity="center" android:textSize="16sp" android:textColor="@color/workspace_muted" />
                 <ImageButton android:id="@+id/collapseTasks" style="@style/IconButton" app:srcCompat="@drawable/ic_chevron" android:contentDescription="Thu gọn / mở danh sách" android:layout_width="32dp" android:layout_height="32dp" android:padding="6dp" android:background="@drawable/collapse_circle" />
             </LinearLayout>
-            <TextView android:id="@+id/taskSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingStart="16dp" android:paddingEnd="12dp" android:paddingBottom="6dp">
+                <TextView android:id="@+id/taskSummary" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textSize="13sp" android:textColor="@color/workspace_muted" />
+                <Button android:id="@+id/editCurrentList" style="@style/FlatButton" android:layout_width="wrap_content" android:layout_height="48dp" android:text="@string/edit_task_list" android:textSize="12sp" android:visibility="gone" />
+            </LinearLayout>
             <FrameLayout android:id="@+id/taskListContainer" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
                 <androidx.recyclerview.widget.RecyclerView android:id="@+id/taskList" android:layout_width="match_parent" android:layout_height="match_parent" android:paddingLeft="6dp" android:paddingRight="6dp" android:paddingBottom="80dp" android:clipToPadding="false" />
                 <TextView android:id="@+id/emptyMessage" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="@string/empty_message" android:textSize="16sp" android:textColor="@color/workspace_text" />

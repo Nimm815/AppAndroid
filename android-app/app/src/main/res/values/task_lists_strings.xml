@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="task_lists">Danh sách công việc</string>
+    <string name="create_task_list">Tạo danh sách</string>
+    <string name="edit_task_list">Sửa danh sách</string>
+    <string name="edit_named_list">Sửa danh sách %1$s</string>
+    <string name="task_list_name">Tên danh sách</string>
+    <string name="list_name_required">Vui lòng nhập tên danh sách</string>
+    <string name="choose_list_tasks">Công việc trong danh sách</string>
+    <string name="choose_list_tasks_detail">Mỗi công việc thuộc một danh sách riêng. Chọn việc từ danh sách khác sẽ chuyển việc sang đây khi lưu. Bỏ chọn chỉ đưa việc ra khỏi danh sách, không xóa công việc.</string>
+    <string name="task_list_empty_choices">Chưa có công việc. Lưu danh sách, sau đó chạm + để thêm việc mới.</string>
+    <string name="empty_task_lists">Chưa có danh sách riêng. Chọn Tạo danh sách để bắt đầu.</string>
+    <string name="list_completion">%1$d / %2$d công việc hoàn thành</string>
+    <string name="list_task_done">Đã hoàn thành</string>
+    <string name="delete_task_list">Xóa danh sách?</string>
+    <string name="delete_task_list_detail">Các công việc vẫn được giữ trong Tất cả công việc và sẽ không thuộc danh sách riêng nào.</string>
+</resources>

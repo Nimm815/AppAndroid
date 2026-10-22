@@ -408,6 +408,9 @@ public class WorkspaceController {
     }
 
     public void add() {
+        if (tab == 0 && !activity.currentTaskListId().isEmpty() && !habitsOnly) {
+            activity.createTask(); return;
+        }
         new AlertDialog.Builder(activity).setTitle("Thêm mới")
                 .setItems(new String[]{"Công việc", "Thói quen hằng ngày", "Sự kiện lịch", "Nhắc việc mới"}, (dialog, which) -> {
                     if (which == 0) activity.createTask();
@@ -1251,19 +1254,19 @@ public class WorkspaceController {
             });
         }
         LinearLayout rows = view.findViewById(R.id.customLists);
+        TaskListUi.bind(activity, rows, dialog);
         for (LocalStore.Entry entry : store.entries(null)) {
-            if (!"list".equals(entry.type) && !"filter".equals(entry.type)) continue;
+            if (!"filter".equals(entry.type)) continue;
             LinearLayout card = card(rows);
             action(card, entry.title, () -> {
                 habitsOnly = false;
-                if ("list".equals(entry.type)) activity.useTaskFilter(0, "", entry.id);
-                else activity.useTaskFilter(Integer.parseInt(entry.time), entry.body, "");
+                activity.useTaskFilter(Integer.parseInt(entry.time), entry.body, "");
                 dialog.dismiss(); selectTab(0);
             });
             action(card, "Sửa / Xóa", () -> new AlertDialog.Builder(activity).setTitle(entry.title)
                     .setItems(new String[]{"Sửa", "Xóa"}, (d, which) -> {
                         dialog.dismiss();
-                        if (which == 0) createCollection(entry.type, entry);
+                        if (which == 0) editFilter(entry);
                         else new AlertDialog.Builder(activity).setTitle("Xóa danh sách / bộ lọc?")
                                 .setMessage("Các công việc bên trong vẫn được giữ lại.")
                                 .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.delete, (c, w) -> {
@@ -1302,6 +1305,7 @@ public class WorkspaceController {
         View view = activity.getLayoutInflater().inflate(R.layout.dialog_list_manager, null);
         AlertDialog dialog = new AlertDialog.Builder(activity).setView(view).create();
         LinearLayout rows = view.findViewById(R.id.managerRows);
+        TaskListUi.bind(activity, rows, dialog);
         for (String title : new String[]{"Tất cả công việc", "Tất cả thói quen"}) {
             LinearLayout row = new LinearLayout(activity); row.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(58));
@@ -1326,7 +1330,7 @@ public class WorkspaceController {
             });
         }
         for (LocalStore.Entry entry : store.entries(null)) {
-            if (!"list".equals(entry.type) && !"filter".equals(entry.type)) continue;
+            if (!"filter".equals(entry.type)) continue;
             LinearLayout row = new LinearLayout(activity); row.setGravity(Gravity.CENTER_VERTICAL);
             rows.addView(row);
             Button name = new Button(activity); name.setText(entry.title);
@@ -1336,7 +1340,7 @@ public class WorkspaceController {
             edit.setContentDescription("Sửa " + entry.title);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(44), dp(44)); params.leftMargin = dp(6);
             row.addView(edit, params);
-            edit.setOnClickListener(v -> { dialog.dismiss(); createCollection(entry.type, entry); });
+            edit.setOnClickListener(v -> { dialog.dismiss(); editFilter(entry); });
             name.setOnClickListener(v -> new AlertDialog.Builder(activity).setTitle(entry.title)
                     .setMessage("list".equals(entry.type) ? "Danh sách chứa các công việc bạn đã chọn." : "Bộ lọc tìm công việc theo tên và trạng thái.")
                     .setNegativeButton(R.string.close, null).setPositiveButton(R.string.delete, (d, which) ->
@@ -1350,8 +1354,8 @@ public class WorkspaceController {
         view.findViewById(R.id.managerHelp).setOnClickListener(v -> new AlertDialog.Builder(activity)
                 .setTitle("Danh sách / Bộ lọc").setMessage("Danh sách chứa công việc được chọn. Bộ lọc tự tìm công việc theo tên và trạng thái.")
                 .setPositiveButton(R.string.close, null).show());
-        view.findViewById(R.id.createList).setOnClickListener(v -> { dialog.dismiss(); createCollection("list", null); });
-        view.findViewById(R.id.createFilter).setOnClickListener(v -> { dialog.dismiss(); createCollection("filter", null); });
+        view.findViewById(R.id.createList).setOnClickListener(v -> { dialog.dismiss(); activity.editTaskList(""); });
+        view.findViewById(R.id.createFilter).setOnClickListener(v -> { dialog.dismiss(); editFilter(null); });
         dialog.show();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
@@ -1362,41 +1366,26 @@ public class WorkspaceController {
     private void createCollection(String type, LocalStore.Entry old) {
         LinearLayout layout = new LinearLayout(activity); layout.setOrientation(LinearLayout.VERTICAL); layout.setPadding(dp(20), dp(8), dp(20), dp(8));
         EditText name = new EditText(activity); name.setHint("Tên danh sách / bộ lọc"); name.setSingleLine(true);
+    private void editFilter(LocalStore.Entry old) {
+        LinearLayout layout = new LinearLayout(activity);
+        layout.setOrientation(LinearLayout.VERTICAL); layout.setPadding(dp(20), dp(8), dp(20), dp(8));
+        EditText name = new EditText(activity); name.setHint("Tên bộ lọc"); name.setSingleLine(true);
         name.setText(old == null ? "" : old.title); layout.addView(name);
         EditText keyword = new EditText(activity); keyword.setHint("Tên công việc chứa…"); keyword.setSingleLine(true);
-        keyword.setText(old == null ? "" : old.body);
+        keyword.setText(old == null ? "" : old.body); layout.addView(keyword);
         Spinner status = new Spinner(activity);
         status.setAdapter(new ArrayAdapter<>(activity, android.R.layout.simple_spinner_dropdown_item,
                 new String[]{"Tất cả trạng thái", "Chưa hoàn thành", "Đã hoàn thành"}));
-        if ("filter".equals(type)) {
-            layout.addView(keyword); layout.addView(status);
-            if (old != null) status.setSelection(Integer.parseInt(old.time));
-        }
-        AlertDialog dialog = new AlertDialog.Builder(activity).setTitle("list".equals(type) ? "Danh sách công việc" : "Bộ lọc")
-                .setView(layout).setNegativeButton(R.string.cancel, null).setPositiveButton("Tiếp tục", null).create();
+        layout.addView(status);
+        if (old != null) status.setSelection(Integer.parseInt(old.time));
+        AlertDialog dialog = new AlertDialog.Builder(activity).setTitle("Bộ lọc")
+                .setView(layout).setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.save, null).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             if (name.getText().toString().trim().isEmpty()) { name.setError("Vui lòng nhập tên"); return; }
             LocalStore.Entry entry = old == null ? new LocalStore.Entry() : old;
-            entry.title = name.getText().toString().trim(); entry.type = type; entry.date = LocalStore.today();
-            if ("filter".equals(type)) {
-                entry.body = keyword.getText().toString().trim(); entry.time = String.valueOf(status.getSelectedItemPosition());
-                store.save(entry); dialog.dismiss(); lists();
-            } else {
-                dialog.dismiss();
-                List<Task> snapshot = new ArrayList<>(tasks);
-                boolean[] checks = new boolean[snapshot.size()];
-                Set<String> previous = new HashSet<>(Arrays.asList((entry.body == null ? "" : entry.body).split(",")));
-                for (int i = 0; i < checks.length; i++) checks[i] = previous.contains(String.valueOf(snapshot.get(i).id));
-                new AlertDialog.Builder(activity).setTitle("Chọn công việc")
-                        .setMultiChoiceItems(taskLabels(snapshot), checks,
-                                (pick, which, checked) -> checks[which] = checked)
-                        .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.save, (pick, which) -> {
-                            List<String> members = new ArrayList<>();
-                            for (int i = 0; i < checks.length; i++) if (checks[i]) members.add(String.valueOf(snapshot.get(i).id));
-                            entry.body = android.text.TextUtils.join(",", members); entry.time = "0";
-                            store.save(entry); activity.refreshWorkspace(); lists();
-                        }).show();
-            }
+            entry.title = name.getText().toString().trim(); entry.type = "filter"; entry.date = LocalStore.today();
+            entry.body = keyword.getText().toString().trim(); entry.time = String.valueOf(status.getSelectedItemPosition());
+            store.save(entry); dialog.dismiss(); lists();
         }));
         dialog.show();
     }
@@ -1434,6 +1423,11 @@ public class WorkspaceController {
         return labels;
     }
 
+    private String[] eventLabels(List<LocalStore.Entry> entries) {
+        String[] labels = new String[entries.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = entries.get(i).time + " " + entries.get(i).title;
+        return labels;
+    }
     private void report() {
         if (activity.getSupportFragmentManager().findFragmentByTag("report") == null)
             ReportDialog.create(0).show(activity.getSupportFragmentManager(), "report");

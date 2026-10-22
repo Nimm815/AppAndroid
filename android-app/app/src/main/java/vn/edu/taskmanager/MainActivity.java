@@ -11,15 +11,13 @@ import androidx.appcompat.app.AlertDialog;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 import vn.edu.taskmanager.data.LocalStore;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import vn.edu.taskmanager.data.Task;
+import vn.edu.taskmanager.data.TaskListWithTasks;
 
 public class MainActivity extends AppCompatActivity implements TaskAdapter.Listener {
     private TaskViewModel model;
@@ -75,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
         if (getIntent() != null && getIntent().hasExtra("open_tab")) {
             workspace.selectTab(getIntent().getIntExtra("open_tab", 0));
         }
+        model.taskLists.observe(this, lists -> renderTasks());
         model.getHistoryChanged().observe(this, ignored -> workspace.refresh());
         model.tasks.observe(this, tasks -> {
             allTasks = tasks;
@@ -110,6 +109,7 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
             }
         });
         findViewById(R.id.addTask).setOnClickListener(v -> workspace.add());
+        findViewById(R.id.editCurrentList).setOnClickListener(v -> editTaskList(listId));
     }
 
     private void renderTasks() {
@@ -118,11 +118,12 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
         List<Task> overdue = new ArrayList<>(), unscheduled = new ArrayList<>();
         String date = workspace.selectedDate(), today = LocalStore.today();
         String keyword = query.trim().toLowerCase(Locale.ROOT);
-        LocalStore.Entry collection = listId.isEmpty() ? null : new LocalStore(this).find(listId);
-        Set<String> members = collection == null ? null : new HashSet<>(Arrays.asList(collection.body.split(",")));
+        TaskListWithTasks collection = findTaskList(listId);
         int done = 0;
-        for (Task task : allTasks) {
-            if (members != null && !members.contains(String.valueOf(task.id))) continue;
+        List<Task> source = listId.isEmpty() ? allTasks : collection == null ? new ArrayList<>() : new ArrayList<>(collection.tasks);
+        source = new ArrayList<>(source);
+        java.util.Collections.sort(source, (a, b) -> a.completed != b.completed ? (a.completed ? 1 : -1) : Long.compare(b.id, a.id));
+        for (Task task : source) {
             if ((filter == 1 && task.completed) || (filter == 2 && !task.completed)) continue;
             if (!task.title.toLowerCase(Locale.ROOT).contains(keyword)) continue;
             if (!allDates && !TaskSchedule.onDate(task, date)) {
@@ -143,13 +144,18 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
         empty.setText(allDates ? "Không có công việc phù hợp.\nChạm + để thêm."
                 : "Không có công việc cho ngày " + displayDate(date) + ".\nChạm + để lên lịch.");
         empty.setVisibility(visible.isEmpty() && overdue.isEmpty() && unscheduled.isEmpty() ? View.VISIBLE : View.GONE);
-        ((TextView) findViewById(R.id.taskSummary)).setText(
-                getString(R.string.task_summary, visible.size(), done));
+        TextView summary = findViewById(R.id.taskSummary);
+        summary.setVisibility(workspace.isHabitsOnly() ? View.GONE : View.VISIBLE);
+        int total = visible.size() + overdue.size() + unscheduled.size();
+        for (Task task : unscheduled) if (task.completed) done++;
+        summary.setText(collection == null ? getString(R.string.task_summary, total, done)
+                : getString(R.string.list_completion, collection.completedCount(), collection.tasks.size()));
+        findViewById(R.id.editCurrentList).setVisibility(collection != null && !workspace.isHabitsOnly() ? View.VISIBLE : View.GONE);
         String label = filter == 1 ? "Chưa hoàn thành" : filter == 2 ? "Đã hoàn thành" : "Tất cả";
-        if (collection != null) label = collection.title;
+        if (collection != null) label = collection.list.title;
         if (!workspace.isHabitsOnly()) {
             ((TextView) findViewById(R.id.listHeading)).setText(!allDates ? "Công việc ngày " + displayDate(date)
-                    : collection != null ? collection.title : filter == 0 ? "Tất cả công việc" : label);
+                    : collection != null ? collection.list.title : !listId.isEmpty() ? getString(R.string.task_lists) : filter == 0 ? "Tất cả công việc" : label);
             ((TextView) findViewById(R.id.taskCount)).setText(String.valueOf(visible.size() + overdue.size() + unscheduled.size()));
         }
     }
@@ -179,14 +185,38 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
 
     private void showEditor(long id, String title, String date, int priority) {
         if (getSupportFragmentManager().findFragmentByTag("task_editor") == null) {
-            TaskEditorDialog.newInstance(id, title, date, priority)
-                    .show(getSupportFragmentManager(), "task_editor");
+            TaskEditorDialog dialog = TaskEditorDialog.newInstance(id, title, date, priority);
+            dialog.requireArguments().putString("listId", listId);
+            dialog.show(getSupportFragmentManager(), "task_editor");
         }
     }
 
     public void refreshWorkspace() { renderTasks(); workspace.refresh(); }
     public void entrySaved(LocalStore.Entry entry) { workspace.entrySaved(entry); }
-    public void taskSaved(String date) { workspace.taskSaved(date); }
+    public void taskSaved(String date) {
+        if (!listId.isEmpty()) { workspace.selectTab(0); return; }
+        workspace.taskSaved(date);
+    }
+    public String currentTaskListId() { return listId; }
+    public TaskListWithTasks findTaskList(String id) {
+        List<TaskListWithTasks> lists = model.taskLists.getValue();
+        if (lists != null) for (TaskListWithTasks item : lists) if (item.list.id.equals(id)) return item;
+        return null;
+    }
+    public void openTaskList(String id) {
+        workspace.showDailyOverview();
+        useTaskFilter(0, "", id);
+        workspace.selectTab(0);
+    }
+    public void editTaskList(String id) {
+        if (getSupportFragmentManager().findFragmentByTag("list_editor") != null) return;
+        TaskListWithTasks item = findTaskList(id);
+        if (!id.isEmpty() && item == null) return;
+        TaskListEditorDialog.create(item).show(getSupportFragmentManager(), "list_editor");
+    }
+    public void taskListDeleted(String id) {
+        if (listId.equals(id)) { useTaskFilter(0, "", ""); workspace.refresh(); }
+    }
     public void createTask() { showEditor(0, "", workspace.selectedDate(), 2); }
     public void selectWorkspaceTab(int tab) { workspace.selectTab(tab); }
     public void useTaskFilter(int status, String keyword, String collection) {
