@@ -1,6 +1,6 @@
 # Backend Spring Boot
 
-Giai đoạn hiện tại chỉ khởi động server và kiểm tra kết nối tới MySQL. Chưa có API nghiệp vụ.
+Backend cung cấp API quản trị người dùng và thống kê hệ thống cho Admin Web. Cấu hình hiện tại sử dụng schema MySQL có sẵn; Hibernate chỉ kiểm tra schema, không tạo/sửa/xóa bảng.
 
 ## Chạy backend
 
@@ -23,3 +23,13 @@ Invoke-RestMethod -Uri "http://localhost:8082/api/health/database"
 ```
 
 Kết quả thành công có trạng thái `connected` và tên database. Hibernate đặt `ddl-auto=validate`, chỉ kiểm tra schema, không tự sửa hay xóa bảng.
+
+## API Admin (phát triển cục bộ)
+
+- `GET /api/admin/users`: tìm kiếm, lọc theo trạng thái/vai trò và phân trang.
+- `PATCH /api/admin/users/{id}`: sửa họ tên hoặc vai trò.
+- `PATCH /api/admin/users/{id}/lock`: khóa/mở khóa tài khoản.
+- `DELETE /api/admin/users/{id}`: xóa mềm.
+- `GET /api/admin/stats`: số liệu người dùng, công việc và hoạt động 30 ngày.
+
+Các API trên hiện chỉ chấp nhận yêu cầu từ máy cục bộ. Chưa có xác thực/ủy quyền quản trị; không đưa server này lên mạng công khai trước khi bổ sung chính sách đăng nhập và phân quyền. API tạo tài khoản cũng chưa có vì chưa thống nhất cách khởi tạo thông tin đăng nhập.
