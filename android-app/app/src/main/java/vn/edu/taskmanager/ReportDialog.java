@@ -1,156 +1,438 @@
 package vn.edu.taskmanager;
 
+import android.app.DatePickerDialog;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.*;
-import androidx.annotation.NonNull;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.DialogFragment;
-import vn.edu.taskmanager.data.LocalStore;
-import java.io.OutputStream;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.*;
 
+import vn.edu.taskmanager.data.LocalStore;
+import vn.edu.taskmanager.report.ReportPdfGenerator;
+import vn.edu.taskmanager.view.DailyChartView;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Màn hình Báo cáo cá nhân (UC12) theo quy chuẩn HelloHabit.
+ * Hỗ trợ kỳ 7 ngày, 30 ngày, tùy chọn; tính 3 chỉ số bắt buộc; vẽ biểu đồ; xuất/chia sẻ file PDF.
+ */
 public class ReportDialog extends DialogFragment {
-    private final Calendar period = Calendar.getInstance();
-    private int mode = 1;
-    private View view;
-    private String reportText = "";
-    private String exportText;
-    public static ReportDialog create(int mode) {
+
+    private int periodMode = 0; // 0: 7 ngày, 1: 30 ngày, 2: Tùy chọn
+    private String fromDateStr;
+    private String toDateStr;
+    private String selectedHabitId = ""; // Rỗng là Tất cả
+    private String selectedHabitName = "Tất cả thói quen";
+
+    private View rootView;
+    private TextView tvPeriodLabel, tvTotalCheckIns, tvActiveDays, tvCompletionRate, tvCompletionDetail;
+    private DailyChartView chartView;
+    private LinearLayout entriesContainer;
+    private Button btnPickCustomDate;
+    private Spinner habitFilterSpinner;
+
+    private final List<String> habitFilterIds = new ArrayList<>();
+    private final List<String> habitFilterNames = new ArrayList<>();
+    private ReportPdfGenerator.ReportData lastReportData;
+
+    public static ReportDialog create(int initialMode) {
         ReportDialog dialog = new ReportDialog();
-        Bundle args = new Bundle(); args.putInt("mode", mode); dialog.setArguments(args);
+        Bundle args = new Bundle();
+        args.putInt("mode", initialMode);
+        dialog.setArguments(args);
         return dialog;
     }
-    private final ActivityResultLauncher<String> saveImage = registerForActivityResult(
-            new ActivityResultContracts.CreateDocument("image/png"), uri -> {
+
+    private final ActivityResultLauncher<String> savePdfLauncher = registerForActivityResult(
+            new ActivityResultContracts.CreateDocument("application/pdf"), uri -> {
                 if (uri == null) return;
                 try (OutputStream output = requireContext().getContentResolver().openOutputStream(uri)) {
-                    Bitmap image = reportImage(exportText == null ? reportText : exportText);
-                    try {
-                        if (output == null || !image.compress(Bitmap.CompressFormat.PNG, 100, output))
-                            throw new IOException("Không ghi được ảnh");
-                    } finally { image.recycle(); }
-                    Toast.makeText(requireContext(), "Đã lưu ảnh báo cáo", Toast.LENGTH_SHORT).show();
-                } catch (IOException | SecurityException error) {
-                    Toast.makeText(requireContext(), "Không lưu được ảnh. Vui lòng thử lại.", Toast.LENGTH_LONG).show();
+                    if (output != null && lastReportData != null) {
+                        ReportPdfGenerator.generatePdf(lastReportData, output);
+                        Toast.makeText(requireContext(), "Đã lưu báo cáo PDF thành công", Toast.LENGTH_SHORT).show();
+                    }
+                } catch (Exception e) {
+                    Toast.makeText(requireContext(), "Không thể lưu PDF: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 }
             });
-    @NonNull @Override public Dialog onCreateDialog(Bundle state) {
-        if (getArguments() != null) mode = getArguments().getInt("mode", 1);
-        if (state != null) {
-            mode = state.getInt("mode", 1); period.setTimeInMillis(state.getLong("period", period.getTimeInMillis()));
-            exportText = state.getString("exportText");
+
+    @NonNull
+    @Override
+    public Dialog onCreateDialog(Bundle state) {
+        if (getArguments() != null) {
+            periodMode = getArguments().getInt("mode", 0);
         }
-        view = getLayoutInflater().inflate(R.layout.dialog_report, null);
-        ReferenceUi.bindNavigation(view, this);
-        RadioGroup modes = view.findViewById(R.id.reportModes);
-        modes.check(mode == 0 ? R.id.reportWeek : mode == 1 ? R.id.reportMonth : R.id.reportYear);
-        modes.setOnCheckedChangeListener((group, checked) -> {
-            mode = checked == R.id.reportWeek ? 0 : checked == R.id.reportMonth ? 1 : 2; render();
+        if (state != null) {
+            periodMode = state.getInt("periodMode", 0);
+            fromDateStr = state.getString("fromDateStr");
+            toDateStr = state.getString("toDateStr");
+            selectedHabitId = state.getString("selectedHabitId", "");
+        } else {
+            initDatesForMode();
+        }
+
+        rootView = getLayoutInflater().inflate(R.layout.dialog_report, null);
+
+        tvPeriodLabel = rootView.findViewById(R.id.reportPeriodLabel);
+        tvTotalCheckIns = rootView.findViewById(R.id.reportTotalCheckIns);
+        tvActiveDays = rootView.findViewById(R.id.reportActiveDays);
+        tvCompletionRate = rootView.findViewById(R.id.reportCompletionRate);
+        tvCompletionDetail = rootView.findViewById(R.id.reportCompletionDetail);
+        chartView = rootView.findViewById(R.id.reportChartView);
+        entriesContainer = rootView.findViewById(R.id.reportEntries);
+        btnPickCustomDate = rootView.findViewById(R.id.reportPickCustomDate);
+        habitFilterSpinner = rootView.findViewById(R.id.reportHabitFilter);
+
+        rootView.findViewById(R.id.closeReport).setOnClickListener(v -> dismiss());
+
+        RadioGroup radioModes = rootView.findViewById(R.id.reportModes);
+        if (periodMode == 0) radioModes.check(R.id.report7Days);
+        else if (periodMode == 1) radioModes.check(R.id.report30Days);
+        else radioModes.check(R.id.reportCustom);
+
+        radioModes.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == R.id.report7Days) periodMode = 0;
+            else if (checkedId == R.id.report30Days) periodMode = 1;
+            else periodMode = 2;
+            initDatesForMode();
+            render();
         });
-        view.findViewById(R.id.reportPrevious).setOnClickListener(v -> move(-1));
-        view.findViewById(R.id.reportNext).setOnClickListener(v -> move(1));
-        view.findViewById(R.id.reportToday).setOnClickListener(v -> { period.setTime(new Date()); render(); });
-        view.findViewById(R.id.closeReport).setOnClickListener(v -> dismiss());
-        view.findViewById(R.id.shareReport).setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, reportText);
-            startActivity(Intent.createChooser(intent, "Chia sẻ báo cáo"));
+
+        btnPickCustomDate.setOnClickListener(v -> pickCustomDateRange());
+
+        // Nạp danh sách thói quen vào Spinner
+        LocalStore store = new LocalStore(requireContext());
+        habitFilterIds.clear();
+        habitFilterNames.clear();
+        habitFilterIds.add("");
+        habitFilterNames.add("Tất cả thói quen");
+        for (LocalStore.Entry h : store.entries("habit")) {
+            habitFilterIds.add(h.id);
+            habitFilterNames.add(h.title);
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_spinner_dropdown_item, habitFilterNames);
+        habitFilterSpinner.setAdapter(adapter);
+
+        int pos = habitFilterIds.indexOf(selectedHabitId);
+        if (pos >= 0) habitFilterSpinner.setSelection(pos);
+
+        habitFilterSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                selectedHabitId = habitFilterIds.get(position);
+                selectedHabitName = habitFilterNames.get(position);
+                render();
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
-        view.findViewById(R.id.saveReportImage).setOnClickListener(v -> {
-            exportText = reportText;
-            saveImage.launch("bao-cao-thoi-quen-" + LocalStore.today() + ".png");
+
+        rootView.findViewById(R.id.saveReportPdf).setOnClickListener(v -> {
+            if (lastReportData != null) {
+                String fileName = ReportPdfGenerator.getStandardFileName(fromDateStr, toDateStr);
+                savePdfLauncher.launch(fileName);
+            }
         });
+
+        rootView.findViewById(R.id.shareReportPdf).setOnClickListener(v -> shareReportPdf());
+
         render();
+
         Dialog dialog = new Dialog(requireContext(), R.style.Theme_TaskManager);
-        dialog.setContentView(view);
+        dialog.setContentView(rootView);
         return dialog;
     }
-    private void move(int amount) {
-        period.add(mode == 0 ? Calendar.WEEK_OF_YEAR : mode == 1 ? Calendar.MONTH : Calendar.YEAR, amount); render();
-    }
-    private void render() {
-        Calendar start = (Calendar) period.clone();
-        if (mode == 0) start = WorkspaceController.monday(period);
-        else if (mode == 1) start.set(Calendar.DAY_OF_MONTH, 1);
-        else { start.set(Calendar.DAY_OF_YEAR, 1); }
-        Calendar end = (Calendar) start.clone();
-        end.add(mode == 0 ? Calendar.DAY_OF_MONTH : mode == 1 ? Calendar.MONTH : Calendar.YEAR, mode == 0 ? 7 : 1);
-        end.add(Calendar.DAY_OF_MONTH, -1);
-        String from = LocalStore.day(start.getTime()), to = LocalStore.day(end.getTime());
-        String label = mode == 0 ? from + " – " + to : new SimpleDateFormat(mode == 1 ? "'Tháng' MM yyyy" : "'Năm' yyyy", new Locale("vi", "VN")).format(start.getTime());
-        ((TextView) view.findViewById(R.id.reportPeriod)).setText(label);
-        LinearLayout rows = view.findViewById(R.id.reportEntries); rows.removeAllViews();
-        StringBuilder result = new StringBuilder("BÁO CÁO THÓI QUEN\n").append(label).append("\n\n");
-        List<LocalStore.Entry> habits = new LocalStore(requireContext()).entries("habit");
-        for (LocalStore.Entry habit : habits) {
-            int eligible = 0, completed = 0;
-            Calendar date = (Calendar) start.clone();
-            while (!date.after(end)) {
-                String key = LocalStore.day(date.getTime());
-                if (key.compareTo(habit.created) >= 0 && key.compareTo(LocalStore.today()) <= 0) {
-                    eligible++; if (habit.days.contains(key)) completed++;
-                }
-                date.add(Calendar.DAY_OF_MONTH, 1);
-            }
-            int percent = eligible == 0 ? 0 : (int) Math.round(completed * 100.0 / eligible);
-            TextView title = new TextView(requireContext()); title.setText(habit.title); title.setTextSize(20); title.setPadding(12, 24, 12, 8); rows.addView(title);
-            TextView detail = new TextView(requireContext());
-            String summary = eligible == 0 ? "Chưa có ngày cần ghi nhận trong kỳ" : completed + "/" + eligible + " ngày · " + percent + "%";
-            detail.setText(summary); detail.setPadding(12, 8, 12, 8); rows.addView(detail);
-            ProgressBar bar = new ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal);
-            bar.setMax(100); bar.setProgress(percent); rows.addView(bar);
-            result.append(habit.title).append(": ").append(summary).append('\n');
-        }
-        if (habits.isEmpty()) {
-            rows.setGravity(android.view.Gravity.CENTER);
-            rows.setHorizontalGravity(android.view.Gravity.CENTER_HORIZONTAL);
-            TextView empty = new TextView(requireContext()); empty.setText("Không có thói quen nào");
-            empty.setGravity(android.view.Gravity.CENTER);
-            empty.setTextSize(18); empty.setTypeface(null, android.graphics.Typeface.BOLD);
-            empty.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.workspace_text));
-            rows.addView(empty);
-            result.append("Không có thói quen nào\n");
+
+    private void initDatesForMode() {
+        Calendar endCal = Calendar.getInstance();
+        toDateStr = LocalStore.day(endCal.getTime());
+
+        Calendar startCal = (Calendar) endCal.clone();
+        if (periodMode == 0) {
+            // 7 ngày gần nhất (tính cả hôm nay)
+            startCal.add(Calendar.DAY_OF_MONTH, -6);
+            fromDateStr = LocalStore.day(startCal.getTime());
+        } else if (periodMode == 1) {
+            // 30 ngày gần nhất
+            startCal.add(Calendar.DAY_OF_MONTH, -29);
+            fromDateStr = LocalStore.day(startCal.getTime());
         } else {
-            rows.setGravity(android.view.Gravity.TOP);
-        }
-        result.append("\nChỉ tính từ ngày tạo đến hôm nay. Mỗi thói quen có mục tiêu hằng ngày.");
-        reportText = result.toString();
-    }
-    private Bitmap reportImage(String text) {
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG); paint.setColor(Color.rgb(35, 35, 35)); paint.setTextSize(28);
-        List<String> lines = new ArrayList<>();
-        for (String paragraph : text.split("\n", -1)) {
-            if (paragraph.isEmpty()) { lines.add(""); continue; }
-            StringBuilder line = new StringBuilder();
-            for (String word : paragraph.split(" ")) {
-                if (paint.measureText(line + " " + word) > 840 && line.length() > 0) { lines.add(line.toString()); line.setLength(0); }
-                if (line.length() > 0) line.append(' ');
-                line.append(word);
+            if (fromDateStr == null || fromDateStr.isEmpty()) {
+                startCal.add(Calendar.DAY_OF_MONTH, -6);
+                fromDateStr = LocalStore.day(startCal.getTime());
             }
-            lines.add(line.toString());
         }
-        Bitmap image = Bitmap.createBitmap(920, Math.max(320, 80 + lines.size() * 44), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(image); canvas.drawColor(Color.WHITE);
-        for (int i = 0; i < lines.size(); i++) canvas.drawText(lines.get(i), 40, 54 + i * 44, paint);
-        return image;
     }
-    @Override public void onStart() {
+
+    private void pickCustomDateRange() {
+        String[] fromParts = fromDateStr.split("-");
+        new DatePickerDialog(requireContext(), (view1, y1, m1, d1) -> {
+            String newFrom = String.format(Locale.ROOT, "%04d-%02d-%02d", y1, m1 + 1, d1);
+            String[] toParts = toDateStr.split("-");
+            new DatePickerDialog(requireContext(), (view2, y2, m2, d2) -> {
+                String newTo = String.format(Locale.ROOT, "%04d-%02d-%02d", y2, m2 + 1, d2);
+                if (newFrom.compareTo(newTo) > 0) {
+                    Toast.makeText(requireContext(), "Ngày bắt đầu phải trước ngày kết thúc", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                fromDateStr = newFrom;
+                toDateStr = newTo;
+                render();
+            }, Integer.parseInt(toParts[0]), Integer.parseInt(toParts[1]) - 1, Integer.parseInt(toParts[2])).show();
+        }, Integer.parseInt(fromParts[0]), Integer.parseInt(fromParts[1]) - 1, Integer.parseInt(fromParts[2])).show();
+    }
+
+    private void render() {
+        btnPickCustomDate.setVisibility(periodMode == 2 ? View.VISIBLE : View.GONE);
+        tvPeriodLabel.setText(MainActivity.displayDate(fromDateStr) + " – " + MainActivity.displayDate(toDateStr));
+
+        LocalStore store = new LocalStore(requireContext());
+        List<LocalStore.Entry> habits = store.entries("habit");
+        String today = LocalStore.today();
+
+        // 1. Thu thập dữ liệu hoạt động theo ngày
+        Map<String, Integer> dateCounts = new HashMap<>();
+        List<String> dateRange = new ArrayList<>();
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
+            Calendar cur = Calendar.getInstance();
+            cur.setTime(sdf.parse(fromDateStr));
+            Calendar end = Calendar.getInstance();
+            end.setTime(sdf.parse(toDateStr));
+
+            while (!cur.after(end)) {
+                String d = LocalStore.day(cur.getTime());
+                dateRange.add(d);
+                dateCounts.put(d, 0);
+                cur.add(Calendar.DAY_OF_MONTH, 1);
+            }
+        } catch (Exception e) {
+            dateRange.add(fromDateStr);
+            dateCounts.put(fromDateStr, 0);
+        }
+
+        int totalCheckIns = 0;
+        Set<String> activeDatesSet = new HashSet<>();
+
+        // Danh sách thói quen lọc
+        List<LocalStore.Entry> targetHabits = new ArrayList<>();
+        for (LocalStore.Entry h : habits) {
+            if (selectedHabitId.isEmpty() || selectedHabitId.equals(h.id)) {
+                targetHabits.add(h);
+            }
+        }
+
+        // Tính toán các chỉ số cho từng thói quen
+        List<ReportPdfGenerator.ReportData.HabitStat> habitStats = new ArrayList<>();
+        int sumEligiblePeriods = 0;
+        int sumCompletedPeriods = 0;
+
+        for (LocalStore.Entry habit : targetHabits) {
+            int hCheckIns = 0;
+            Set<String> hActiveDays = new HashSet<>();
+            int hEligible = 0;
+            int hCompleted = 0;
+
+            for (String day : dateRange) {
+                int prog = habit.progressOn(day);
+                if (prog > 0) {
+                    hCheckIns++;
+                    hActiveDays.add(day);
+                    activeDatesSet.add(day);
+                    dateCounts.put(day, dateCounts.get(day) + 1);
+                    totalCheckIns++;
+                }
+
+                // Tính kỳ mục tiêu đã kết thúc:
+                // Thói quen hằng ngày: kỳ kết thúc là các ngày trước hôm nay (day < today)
+                // và bắt đầu từ ngày tạo (day >= habit.created).
+                if (day.compareTo(today) < 0 && (habit.created == null || day.compareTo(habit.created) >= 0)) {
+                    hEligible++;
+                    if (prog == 100) {
+                        hCompleted++;
+                    }
+                }
+            }
+
+            String hRateStr = "-";
+            if (hEligible > 0) {
+                double rate = (hCompleted * 100.0) / hEligible;
+                hRateStr = String.format(Locale.ROOT, "%.1f%%", rate);
+            }
+
+            sumEligiblePeriods += hEligible;
+            sumCompletedPeriods += hCompleted;
+
+            habitStats.add(new ReportPdfGenerator.ReportData.HabitStat(habit.title, hCheckIns, hActiveDays.size(), hRateStr));
+        }
+
+        // 2. Hiển thị 3 chỉ số chính
+        tvTotalCheckIns.setText(String.valueOf(totalCheckIns));
+        tvActiveDays.setText(String.valueOf(activeDatesSet.size()));
+
+        String completionRateStr = "-";
+        if (sumEligiblePeriods > 0) {
+            double overallRate = (sumCompletedPeriods * 100.0) / sumEligiblePeriods;
+            completionRateStr = String.format(Locale.ROOT, "%.1f%%", overallRate);
+            tvCompletionDetail.setText(sumCompletedPeriods + "/" + sumEligiblePeriods + " kỳ đạt (không gồm kỳ đang diễn ra)");
+        } else {
+            tvCompletionDetail.setText("Không gồm kỳ đang diễn ra");
+        }
+        tvCompletionRate.setText(completionRateStr);
+
+        // 3. Hiển thị Biểu đồ cột
+        List<DailyChartView.BarData> chartData = new ArrayList<>();
+        List<ReportPdfGenerator.ReportData.DailyStat> dailyPdfStats = new ArrayList<>();
+        for (String day : dateRange) {
+            int c = dateCounts.get(day);
+            String label = day.length() >= 5 ? day.substring(5) : day; // MM-dd
+            chartData.add(new DailyChartView.BarData(label, c));
+            dailyPdfStats.add(new ReportPdfGenerator.ReportData.DailyStat(day, c));
+        }
+        chartView.setData(chartData);
+
+        // 4. Bảng chi tiết từng thói quen trên màn hình
+        entriesContainer.removeAllViews();
+        if (targetHabits.isEmpty()) {
+            TextView empty = new TextView(requireContext());
+            empty.setText("Không có thói quen nào phù hợp bộ lọc.");
+            empty.setPadding(16, 24, 16, 24);
+            empty.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.workspace_muted));
+            entriesContainer.addView(empty);
+        } else {
+            for (int i = 0; i < targetHabits.size(); i++) {
+                LocalStore.Entry habit = targetHabits.get(i);
+                ReportPdfGenerator.ReportData.HabitStat hs = habitStats.get(i);
+
+                LinearLayout item = new LinearLayout(requireContext());
+                item.setOrientation(LinearLayout.VERTICAL);
+                item.setBackgroundResource(R.drawable.task_card);
+                item.setPadding(24, 20, 24, 20);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+                lp.bottomMargin = 16;
+                item.setLayoutParams(lp);
+
+                TextView title = new TextView(requireContext());
+                title.setText(habit.title);
+                title.setTextSize(16);
+                title.setTypeface(null, android.graphics.Typeface.BOLD);
+                title.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.workspace_text));
+                item.addView(title);
+
+                TextView sub = new TextView(requireContext());
+                sub.setText(hs.checkIns + " lượt ghi nhận  ·  " + hs.activeDays + " ngày có hoạt động  ·  Tỷ lệ: " + hs.rateStr);
+                sub.setTextSize(13);
+                sub.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.workspace_muted));
+                sub.setPadding(0, 6, 0, 10);
+                item.addView(sub);
+
+                int progressVal = 0;
+                if (!"-".equals(hs.rateStr)) {
+                    try {
+                        progressVal = (int) Math.round(Double.parseDouble(hs.rateStr.replace("%", "")));
+                    } catch (Exception ignored) {}
+                }
+                ProgressBar pb = new ProgressBar(requireContext(), null, android.R.attr.progressBarStyleHorizontal);
+                pb.setMax(100);
+                pb.setProgress(progressVal);
+                item.addView(pb);
+
+                entriesContainer.addView(item);
+            }
+        }
+
+        // Lưu dữ liệu để xuất PDF
+        lastReportData = new ReportPdfGenerator.ReportData();
+        lastReportData.fromDate = fromDateStr;
+        lastReportData.toDate = toDateStr;
+        lastReportData.habitFilterName = selectedHabitName;
+        lastReportData.totalCheckIns = totalCheckIns;
+        lastReportData.activeDays = activeDatesSet.size();
+        lastReportData.completionRateStr = completionRateStr;
+        lastReportData.completedPeriods = sumCompletedPeriods;
+        lastReportData.eligiblePeriods = sumEligiblePeriods;
+        lastReportData.dailyStats = dailyPdfStats;
+        lastReportData.habitStats = habitStats;
+    }
+
+    private void shareReportPdf() {
+        if (lastReportData == null) return;
+        try {
+            File cacheDir = new File(requireContext().getCacheDir(), "reports");
+            if (!cacheDir.exists()) cacheDir.mkdirs();
+
+            String fileName = ReportPdfGenerator.getStandardFileName(fromDateStr, toDateStr);
+            File pdfFile = new File(cacheDir, fileName);
+
+            try (FileOutputStream fos = new FileOutputStream(pdfFile)) {
+                ReportPdfGenerator.generatePdf(lastReportData, fos);
+            }
+
+            Uri uri = FileProvider.getUriForFile(requireContext(),
+                    requireContext().getPackageName() + ".fileprovider", pdfFile);
+
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("application/pdf");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Báo cáo thói quen: " + fromDateStr + " đến " + toDateStr);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            startActivity(Intent.createChooser(shareIntent, "Chia sẻ báo cáo PDF"));
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "Lỗi khi chia sẻ PDF: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    public void onStart() {
         super.onStart();
-        if (getDialog() != null && getDialog().getWindow() != null)
+        if (getDialog() != null && getDialog().getWindow() != null) {
             getDialog().getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        }
     }
-    @Override public void onSaveInstanceState(@NonNull Bundle out) {
-        super.onSaveInstanceState(out); out.putInt("mode", mode); out.putLong("period", period.getTimeInMillis()); out.putString("exportText", exportText);
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle out) {
+        super.onSaveInstanceState(out);
+        out.putInt("periodMode", periodMode);
+        out.putString("fromDateStr", fromDateStr);
+        out.putString("toDateStr", toDateStr);
+        out.putString("selectedHabitId", selectedHabitId);
     }
 }

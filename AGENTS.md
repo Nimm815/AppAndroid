@@ -62,3 +62,37 @@ Sau đó cho tôi biết bước đầu tiên cần làm với dự án hiện c
 - Lưu riêng `onboarding_completed` trong SharedPreferences `app_preferences`, không coi đây là trạng thái đăng nhập.
 - Bốn trang giới thiệu Trang chủ (công việc và thói quen), Nhật ký, Lịch và Cài đặt; có thể xem lại từ Cài đặt mà không xóa dữ liệu.
 - Dùng ảnh chụp thực tế các màn hình chính của app, kèm chú thích XML để người dùng hình dung giao diện. Không thay bằng các thẻ ví dụ chung chung.
+
+## Triển khai Kế hoạch UC09 - UC12 (Đã được duyệt)
+Đã hoàn thành phát triển 4 use case chính theo tài liệu `Ke_hoach_UC09_UC12_HelloHabit.pdf`:
+1. **UC09 — Quản lý nhật ký hoạt động**:
+   - Dòng thời gian phân biệt ghi chú người dùng và hoạt động hệ thống.
+   - Tìm kiếm tiếng Việt không dấu (thuật toán `VietnameseUtils.containsIgnoreAccents`) với debounce 300ms.
+   - 3 bộ lọc kết hợp đồng thời (AND): Khoảng ngày, Thói quen liên quan, Đánh dấu.
+   - Thao tác đánh dấu bookmark 1 chạm trực tiếp trên thẻ bài viết.
+   - Form thêm/sửa ghi chú chặn thời điểm tương lai, kiểm tra độ dài 1-2.000 ký tự.
+   - Hộp thoại xác nhận xóa: "Xóa ghi chú này?".
+   - Phân trang lazy-load 30 mục mỗi lần và thông báo trạng thái trống chuẩn.
+2. **UC10 — Quản lý lịch**:
+   - Lưới lịch tháng 42 ô (6 hàng x 7 cột), hiển thị chấm báo ngày có sự kiện.
+   - Danh sách sự kiện ngày được chọn theo giờ bắt đầu, tự động phát hiện và gắn nhãn "Trùng giờ".
+   - Form thêm/sửa sự kiện: mốc nửa giờ tiếp theo nếu là hôm nay, sự kiện cả ngày, kiểm tra kết thúc > bắt đầu, mô tả tối đa 500 ký tự, liên kết thói quen.
+   - Tự động tạo, cập nhật hoặc hủy lời nhắc đi kèm trong `ReminderScheduler`.
+   - Hộp thoại xác nhận xóa: "Xóa sự kiện và lời nhắc liên quan?".
+3. **UC11 — Quản lý nhắc việc**:
+   - Thẻ Nhắc việc trong màn hình Lịch, công tắc Bật/Tắt trực tiếp trên từng dòng.
+   - Chế độ lặp: Một lần, Hằng ngày, Chọn các thứ trong tuần (T2..CN).
+   - Kiểm tra và xin quyền `POST_NOTIFICATIONS` trên Android 13+, kiểm tra quyền exact alarm trên Android 12+.
+   - `ReminderScheduler` lên lịch qua `AlarmManager` (hỗ trợ `RTC_WAKEUP` và `allowWhileIdle`).
+   - `ReminderReceiver` tạo `NotificationChannel`, phát thông báo chuông/rung và tự động tính lượt lặp kế tiếp.
+   - `BootReceiver` tự động khôi phục và lên lịch lại tất cả lời nhắc đang bật khi khởi động lại máy.
+   - Cơ chế kiểm tra chống cấu hình trùng lặp.
+4. **UC12 — Báo cáo cá nhân & Xuất/Chia sẻ PDF**:
+   - 3 kỳ báo cáo: 7 ngày gần nhất (mặc định), 30 ngày, Tùy chọn khoảng ngày (tối đa 366 ngày).
+   - Bộ lọc theo từng thói quen hoặc tất cả thói quen.
+   - 3 chỉ số bắt buộc: Lượt ghi nhận, Ngày có hoạt động, Tỷ lệ hoàn thành (kỳ đã kết thúc, không gồm kỳ đang diễn ra).
+   - Biểu đồ cột hoạt động theo ngày `DailyChartView`.
+   - Bảng chi tiết từng thói quen với số lượt, số ngày và tỷ lệ %.
+   - Xuất file PDF chuẩn A4 bằng Android `PdfDocument` với tên file `Bao_cao_YYYYMMDD_YYYYMMDD.pdf`.
+   - Hỗ trợ Lưu PDF qua `CreateDocument` và Chia sẻ PDF qua `FileProvider` (`Intent.ACTION_SEND`).
+

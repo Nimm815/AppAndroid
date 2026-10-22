@@ -89,11 +89,12 @@ bốn tab Công việc, Nhật ký, Lịch, Cài đặt và nút thêm hình tr�
 | Hôm nay / Công việc | Thêm, sửa, xóa, hoàn thành, tìm kiếm, lọc trạng thái, thống kê |
 | Menu danh sách / bộ lọc | Chọn công việc hoặc thói quen; tạo/sửa/xóa danh sách; chọn công việc trong danh sách; bộ lọc theo tên và trạng thái |
 | Thói quen | Tạo/sửa/xóa thói quen hằng ngày; chọn ngày trong tuần và ghi nhận hoàn thành |
-| Nhật ký | Tạo/sửa/xóa ghi chú, tìm kiếm tên/nội dung, đánh dấu trang và lọc ghi chú đã đánh dấu |
-| Lịch | Lưới tuần 24 giờ; chọn ngày, chuyển tuần, quay về hôm nay; tạo/sửa/xóa sự kiện có ngày và giờ |
+| Nhật ký (UC09) | Dòng thời gian, tìm kiếm không dấu (debounce 300ms), 3 bộ lọc AND (khoảng ngày, thói quen, đánh dấu), đánh dấu 1 chạm, phân trang 30 mục, xác nhận xóa |
+| Lịch (UC10) | Lưới lịch tháng 42 ô có chấm báo sự kiện; chọn ngày xem sự kiện; phát hiện trùng giờ; thêm/sửa/xóa sự kiện kèm lời nhắc tự động |
+| Nhắc việc (UC11) | Danh sách lịch nhắc sắp tới; công tắc Bật/Tắt trực tiếp; lặp 1 lần / hằng ngày / thứ trong tuần; kiểm tra quyền thông báo POST_NOTIFICATIONS và exact alarm; khôi phục sau khởi động máy |
+| Báo cáo (UC12) | 3 kỳ (7 ngày, 30 ngày, tùy chọn); 3 chỉ số bắt buộc (Lượt ghi nhận, Ngày hoạt động, Tỷ lệ hoàn thành); biểu đồ cột Canvas; xuất/chia sẻ file PDF chuẩn `Bao_cao_YYYYMMDD_YYYYMMDD.pdf` |
 | Cài đặt | Giao diện sáng/tối/theo hệ thống, tìm kiếm chung, hướng dẫn, mở danh sách, hẹn giờ và báo cáo |
 | Bộ hẹn giờ | Bấm giờ, ghi vòng, đếm ngược giờ/phút/giây, bắt đầu/tạm dừng/đặt lại; chọn thói quen làm nội dung tập trung |
-| Báo cáo | Theo tuần/tháng/năm, chuyển kỳ, số ngày hoàn thành và tỷ lệ; lưu ảnh PNG qua trình chọn tệp Android; chia sẻ văn bản |
 
 Dải ngày trong tab Công việc chọn **ngày thực hiện** và ngày ghi nhận thói quen.
 Chế độ xem theo ngày hiển thị cả công việc và thói quen trong hai nhóm riêng.

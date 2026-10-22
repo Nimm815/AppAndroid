@@ -1,24 +1,288 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
-    <FrameLayout android:layout_width="match_parent" android:layout_height="76dp">
-        <TextView style="@style/ScreenTitle" android:text="@string/calendar" />
-        <ImageButton android:id="@+id/calendarMenu" style="@style/IconButton" app:srcCompat="@drawable/ic_menu" android:contentDescription="@string/manage_lists" android:layout_gravity="start|center_vertical" android:layout_marginStart="12dp" android:background="@drawable/control_gray" />
-        <ImageButton android:id="@+id/calendarMore" style="@style/IconButton" app:srcCompat="@drawable/ic_more" android:contentDescription="Tùy chọn lịch" android:layout_gravity="end|center_vertical" android:layout_marginEnd="12dp" />
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/workspace_surface">
+
+    <!-- Top Bar -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:padding="12dp"
+        android:background="@color/workspace_surface">
+
+        <ImageButton
+            android:id="@+id/calendarMenu"
+            style="@style/IconButton"
+            app:srcCompat="@drawable/ic_menu"
+            android:contentDescription="@string/manage_lists"
+            android:layout_gravity="start|center_vertical"
+            android:background="@drawable/control_gray" />
+
+        <TextView
+            style="@style/ScreenTitle"
+            android:text="Lịch &amp; Nhắc việc" />
+
+        <ImageButton
+            android:id="@+id/calendarMore"
+            style="@style/IconButton"
+            app:srcCompat="@drawable/ic_more"
+            android:contentDescription="Tùy chọn lịch"
+            android:layout_gravity="end|center_vertical" />
     </FrameLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical" android:paddingLeft="40dp" android:paddingRight="40dp" android:layout_marginBottom="6dp">
-        <Button android:id="@+id/calendarDate" style="@style/FlatButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:textSize="15sp" android:textStyle="bold" />
-        <Button android:id="@+id/calendarPrevious" style="@style/FlatButton" android:layout_width="40dp" android:layout_height="48dp" android:layout_marginStart="6dp" android:text="‹" android:textSize="30sp" android:contentDescription="@string/previous_week" />
-        <Button android:id="@+id/calendarToday" style="@style/BlackButton" android:layout_width="84dp" android:layout_height="48dp" android:layout_marginStart="3dp" android:text="@string/today" android:textSize="14sp" />
-        <Button android:id="@+id/calendarNext" style="@style/FlatButton" android:layout_width="40dp" android:layout_height="48dp" android:layout_marginStart="3dp" android:text="›" android:textSize="30sp" android:contentDescription="@string/next_week" />
+
+    <!-- Hai Thẻ chuyển đổi: [Lịch] và [Nhắc việc] -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:layout_marginBottom="8dp">
+
+        <Button
+            android:id="@+id/calendarTabCalendar"
+            style="@style/BlackButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="Lịch"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="6dp" />
+
+        <Button
+            android:id="@+id/calendarTabReminders"
+            style="@style/FlatButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="Nhắc việc"
+            android:textSize="14sp"
+            android:layout_marginStart="6dp" />
     </LinearLayout>
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
-    <LinearLayout android:id="@+id/calendarWeek" android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="54dp" android:paddingLeft="48dp" />
-    <TextView android:id="@+id/calendarAgenda" android:layout_width="match_parent" android:layout_height="32dp" android:visibility="gone" />
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
-    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-        <ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
-            <LinearLayout android:id="@+id/calendarGrid" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
-        </ScrollView>
-        <TextView android:id="@+id/addEvent" style="@style/AddButton" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/workspace_line" />
+
+    <!-- Container cho Thẻ Lịch (UC10) -->
+    <FrameLayout
+        android:id="@+id/calendarScheduleContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- Month navigation bar -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <TextView
+                    android:id="@+id/calendarMonthTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tháng 10/2026"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/workspace_text" />
+
+                <Button
+                    android:id="@+id/calendarPrevMonth"
+                    style="@style/FlatButton"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:text="‹"
+                    android:textSize="22sp"
+                    android:padding="0dp"
+                    android:contentDescription="Tháng trước" />
+
+                <Button
+                    android:id="@+id/calendarTodayBtn"
+                    style="@style/FlatButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:layout_marginStart="4dp"
+                    android:text="Hôm nay"
+                    android:textSize="12sp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp" />
+
+                <Button
+                    android:id="@+id/calendarNextMonth"
+                    style="@style/FlatButton"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginStart="4dp"
+                    android:text="›"
+                    android:textSize="22sp"
+                    android:padding="0dp"
+                    android:contentDescription="Tháng sau" />
+            </LinearLayout>
+
+            <!-- Lưới các ngày trong tuần: T2 -> CN -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="28dp"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <TextView style="@style/CalendarWeekHeader" android:text="T2" />
+                <TextView style="@style/CalendarWeekHeader" android:text="T3" />
+                <TextView style="@style/CalendarWeekHeader" android:text="T4" />
+                <TextView style="@style/CalendarWeekHeader" android:text="T5" />
+                <TextView style="@style/CalendarWeekHeader" android:text="T6" />
+                <TextView style="@style/CalendarWeekHeader" android:text="T7" />
+                <TextView style="@style/CalendarWeekHeader" android:text="CN" />
+            </LinearLayout>
+
+            <!-- Lưới tháng 42 ô (6 hàng x 7 cột) -->
+            <TableLayout
+                android:id="@+id/calendarMonthTable"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:stretchColumns="*"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="6dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/workspace_line" />
+
+            <!-- Header ngày được chọn -->
+            <TextView
+                android:id="@+id/calendarSelectedDayHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="6dp"
+                android:text="Sự kiện ngày 22/10/2026"
+                android:textColor="@color/workspace_muted"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <!-- Danh sách sự kiện trong ngày -->
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:clipToPadding="false"
+                android:padding="8dp">
+
+                <LinearLayout
+                    android:id="@+id/calendarEventsList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/addEvent"
+            style="@style/AddButton" />
+    </FrameLayout>
+
+    <!-- Container cho Thẻ Nhắc việc (UC11) -->
+    <FrameLayout
+        android:id="@+id/calendarRemindersContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- Banner cảnh báo quyền thông báo nếu bị thiếu -->
+            <LinearLayout
+                android:id="@+id/reminderPermBanner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/workspace_soft"
+                android:padding="12dp"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/reminderPermText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Chưa thể thông báo: Hãy bật quyền thông báo để nhận lời nhắc"
+                    android:textColor="#C0392B"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/btnOpenNotificationSettings"
+                    style="@style/FlatButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Cài đặt"
+                    android:textSize="12sp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/reminderExactBanner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#FFF9E6"
+                android:padding="8dp"
+                android:text="Lưu ý: Có thể nhắc chậm do thiết bị hạn chế chuông chính xác"
+                android:textColor="#B78103"
+                android:textSize="12sp"
+                android:gravity="center"
+                android:visibility="gone" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="6dp"
+                android:text="Danh sách lịch nhắc việc sắp tới"
+                android:textColor="@color/workspace_muted"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:clipToPadding="false"
+                android:padding="8dp">
+
+                <LinearLayout
+                    android:id="@+id/reminderList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/addReminder"
+            style="@style/AddButton" />
     </FrameLayout>
 </LinearLayout>

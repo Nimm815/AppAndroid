@@ -49,7 +49,7 @@ public class JournalReaderDialog extends DialogFragment {
                 EntryEditorDialog.create("note", note.id, note.date).show(activity.getSupportFragmentManager(), "entry_editor");
         });
         view.findViewById(R.id.readerDelete).setOnClickListener(v -> new AlertDialog.Builder(requireContext())
-                .setTitle("Xóa bài nhật ký?").setMessage("Bạn có muốn xóa “" + note.title + "” không?")
+                .setTitle("Xóa ghi chú này?").setMessage("Bạn có muốn xóa ghi chú “" + note.title + "” không?")
                 .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.delete, (confirmation, which) -> {
                     store.delete(note.id); ((MainActivity) requireActivity()).refreshWorkspace(); dismiss();
                 }).show());
