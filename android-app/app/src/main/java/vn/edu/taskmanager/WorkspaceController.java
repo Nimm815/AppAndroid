@@ -306,7 +306,9 @@ public class WorkspaceController {
 
         click(R.id.settingsMenu, this::lists);
         click(R.id.settingsStar, () -> new AlertDialog.Builder(activity).setTitle(R.string.app_name)
-                .setMessage(R.string.local_account_detail).setPositiveButton(R.string.close, null).show());
+                .setMessage(activity.getString(R.string.local_account_detail) + "\n\n"
+                        + vn.edu.taskmanager.sync.WorkspaceSync.state(activity).getString("status", "Chưa kết nối MySQL"))
+                .setPositiveButton(R.string.close, null).show());
         click(R.id.collapseTasks, () -> { collapsed = !collapsed; refresh(); });
 
         click(R.id.currentDate, () -> new DatePickerDialog(activity, (picker, year, month, date) -> {
@@ -339,6 +341,15 @@ public class WorkspaceController {
     public boolean isHabitsOnly() { return habitsOnly; }
     public void showDailyOverview() { habitsOnly = false; collapsed = false; }
     public String selectedDate() { return day(selected); }
+    public void refreshSyncStatus() {
+        TextView statusView = activity.findViewById(R.id.syncStatus);
+        String status = vn.edu.taskmanager.sync.WorkspaceSync.state(activity).getString("status", "");
+        if (status.isEmpty()) {
+            status = activity.getString(vn.edu.taskmanager.sync.WorkspaceSync.configured(activity)
+                    ? R.string.sync_ready : R.string.sync_not_configured);
+        }
+        statusView.setText(status);
+    }
     public boolean back() {
         if (tab == 0) return false;
         selectTab(0); return true;

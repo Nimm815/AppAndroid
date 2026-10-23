@@ -28,8 +28,10 @@ public class LocalStore {
         }
     }
     private final SharedPreferences preferences;
+    private final Context application;
     public LocalStore(Context context) {
-        preferences = context.getSharedPreferences("personal_workspace", Context.MODE_PRIVATE);
+        application = context.getApplicationContext();
+        preferences = context.getSharedPreferences(vn.edu.taskmanager.auth.Session.storage(context,"personal_workspace"), Context.MODE_PRIVATE);
     }
     public static String today() { return day(new Date()); }
     public static String day(Date date) {
@@ -81,13 +83,17 @@ public class LocalStore {
             for (int i = all.size() - 1; i >= 0; i--) if (all.get(i).id.equals(entry.id)) all.remove(i);
             all.add(entry);
             write(all);
+            if ("habit".equals(entry.type)) vn.edu.taskmanager.sync.WorkspaceSync.changed(application);
         }
     }
     public void delete(String id) {
         synchronized (LocalStore.class) {
             List<Entry> all = entries(null);
+            boolean habit = false;
+            for (Entry entry : all) if (entry.id.equals(id) && "habit".equals(entry.type)) habit = true;
             for (int i = all.size() - 1; i >= 0; i--) if (all.get(i).id.equals(id)) all.remove(i);
             write(all);
+            if (habit) vn.edu.taskmanager.sync.WorkspaceSync.changed(application);
         }
     }
     public void checkHabit(Entry entry, String day, boolean checked) {

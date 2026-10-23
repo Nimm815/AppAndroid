@@ -31,16 +31,31 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     private String query = "";
     private String listId = "";
     private WorkspaceController workspace;
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener syncListener = (preferences, key) -> {
+        if ("status".equals(key)) runOnUiThread(() -> {
+            String status = preferences.getString("status", "");
+            if (workspace != null) workspace.refreshSyncStatus();
+            if (status.startsWith("Chưa lưu"))
+                Toast.makeText(this, status, Toast.LENGTH_LONG).show();
+        });
+    };
     private final android.os.Handler dayHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable dayCheck = new Runnable() {
         @Override public void run() { if (workspace != null) workspace.checkDayChange(); dayHandler.postDelayed(this, 30000); }
     };
     @Override protected void onResume() {
         super.onResume();
-        if (workspace != null) { workspace.checkDayChange(); workspace.refresh(); }
+        if (isFinishing()) return;
+        vn.edu.taskmanager.sync.WorkspaceSync.state(this).registerOnSharedPreferenceChangeListener(syncListener);
+        if (vn.edu.taskmanager.sync.WorkspaceSync.configured(this)) vn.edu.taskmanager.sync.WorkspaceSync.enqueue(this);
+        if (workspace != null) {
+            workspace.refreshSyncStatus();
+            workspace.checkDayChange();
+            workspace.refresh();
+        }
         dayHandler.removeCallbacks(dayCheck); dayHandler.postDelayed(dayCheck, 30000);
     }
-    @Override protected void onPause() { dayHandler.removeCallbacks(dayCheck); super.onPause(); }
+    @Override protected void onPause() { vn.edu.taskmanager.sync.WorkspaceSync.state(this).unregisterOnSharedPreferenceChangeListener(syncListener); dayHandler.removeCallbacks(dayCheck); super.onPause(); }
 
     @Override
     protected void onNewIntent(android.content.Intent intent) {
@@ -110,6 +125,7 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
         });
         findViewById(R.id.addTask).setOnClickListener(v -> workspace.add());
         findViewById(R.id.editCurrentList).setOnClickListener(v -> editTaskList(listId));
+
     }
 
     private void renderTasks() {
