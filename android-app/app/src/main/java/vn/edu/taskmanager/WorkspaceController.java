@@ -14,6 +14,9 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatDelegate;
 import vn.edu.taskmanager.data.LocalStore;
 import vn.edu.taskmanager.data.Task;
+import vn.edu.taskmanager.AuthActivity;
+import vn.edu.taskmanager.auth.AccountSession;
+import vn.edu.taskmanager.auth.AuthApi;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -125,6 +128,10 @@ public class WorkspaceController {
         click(R.id.settingsMenu, this::lists);
         click(R.id.settingsStar, () -> new AlertDialog.Builder(activity).setTitle(R.string.app_name)
                 .setMessage(R.string.local_account_detail).setPositiveButton(R.string.close, null).show());
+        click(R.id.settingsAccountLogin, () -> activity.startActivity(new android.content.Intent(activity, AuthActivity.class)));
+        click(R.id.settingsAccountLogout, this::confirmLogout);
+        click(R.id.settingsAccountDelete, this::confirmDeleteAccount);
+        click(R.id.settingsAccountChangePassword, this::changePassword);
         click(R.id.collapseTasks, () -> { collapsed = !collapsed; refresh(); });
         EditText search = activity.findViewById(R.id.journalSearch);
         search.setText(noteQuery);
@@ -202,6 +209,7 @@ public class WorkspaceController {
         refresh();
     }
     public void refresh() {
+        refreshAccountUi();
         history.sync(tasks, store.entries("habit"), LocalStore.today());
         week(activity.findViewById(R.id.taskWeek), selected, () -> { activity.showSelectedDay(); refresh(); });
         refreshDate(); refreshHabits(); refreshJournal();
@@ -214,6 +222,173 @@ public class WorkspaceController {
         ((Button) activity.findViewById(R.id.themeChoice)).setText(new String[]{"Sáng  ﹀", "Tối  ﹀", "Hệ thống  ﹀"}[preferences.getInt("theme", 0)]);
         activity.renderTaskDates();
     }
+    private void refreshAccountUi() {
+        TextView status = activity.findViewById(R.id.accountStatus);
+        View login = activity.findViewById(R.id.settingsAccountLogin);
+        View logout = activity.findViewById(R.id.settingsAccountLogout);
+        View delete = activity.findViewById(R.id.settingsAccountDelete);
+        View changePassword =
+                activity.findViewById(R.id.settingsAccountChangePassword);
+
+        boolean loggedIn = AccountSession.isLoggedIn(activity);
+        status.setText(loggedIn
+                ? AccountSession.fullName(activity) + "\n" + AccountSession.email(activity)
+                : "Đang dùng trên thiết bị · chưa đăng nhập");
+        login.setVisibility(loggedIn ? View.GONE : View.VISIBLE);
+        logout.setVisibility(loggedIn ? View.VISIBLE : View.GONE);
+        delete.setVisibility(loggedIn ? View.VISIBLE : View.GONE);
+        changePassword.setVisibility(
+                loggedIn ? View.VISIBLE : View.GONE
+        );
+    }
+
+    private void confirmLogout() {
+        new AlertDialog.Builder(activity).setTitle("Đăng xuất")
+                .setMessage("Bạn có chắc muốn đăng xuất khỏi TaskMind trên thiết bị này?")
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton("Đăng xuất", (dialog, which) -> {
+                    AccountSession.clear(activity);
+                    refreshAccountUi();
+                    Toast.makeText(activity, "Đã đăng xuất", Toast.LENGTH_SHORT).show();
+                }).show();
+    }
+
+    private void changePassword() {
+        LinearLayout layout = new LinearLayout(activity);
+        layout.setOrientation(LinearLayout.VERTICAL);
+
+        int padding = (int) (20 * activity.getResources()
+                .getDisplayMetrics().density);
+        layout.setPadding(padding, padding / 2, padding, 0);
+
+        EditText currentPassword = new EditText(activity);
+        currentPassword.setSingleLine(true);
+        currentPassword.setHint("Mật khẩu hiện tại");
+        currentPassword.setInputType(
+                android.text.InputType.TYPE_CLASS_TEXT
+                        | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        );
+
+        EditText newPassword = new EditText(activity);
+        newPassword.setSingleLine(true);
+        newPassword.setHint("Mật khẩu mới (ít nhất 8 ký tự)");
+        newPassword.setInputType(
+                android.text.InputType.TYPE_CLASS_TEXT
+                        | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        );
+
+        EditText confirmPassword = new EditText(activity);
+        confirmPassword.setSingleLine(true);
+        confirmPassword.setHint("Xác nhận mật khẩu mới");
+        confirmPassword.setInputType(
+                android.text.InputType.TYPE_CLASS_TEXT
+                        | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        );
+
+        layout.addView(currentPassword);
+        layout.addView(newPassword);
+        layout.addView(confirmPassword);
+
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle("Đổi mật khẩu")
+                .setView(layout)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton("Cập nhật", null)
+                .create();
+
+        dialog.setOnShowListener(ignored ->
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setOnClickListener(v -> {
+                            String current = currentPassword.getText()
+                                    .toString();
+                            String next = newPassword.getText().toString();
+                            String confirm = confirmPassword.getText()
+                                    .toString();
+
+                            if (current.isEmpty() || next.isEmpty()
+                                    || confirm.isEmpty()) {
+                                Toast.makeText(activity,
+                                        "Vui lòng nhập đầy đủ thông tin",
+                                        Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+
+                            if (next.length() < 8 || next.length() > 72) {
+                                newPassword.setError(
+                                        "Mật khẩu phải có từ 8 đến 72 ký tự");
+                                return;
+                            }
+
+                            if (!next.equals(confirm)) {
+                                confirmPassword.setError(
+                                        "Mật khẩu xác nhận không khớp");
+                                return;
+                            }
+
+                            if (current.equals(next)) {
+                                newPassword.setError(
+                                        "Mật khẩu mới phải khác mật khẩu hiện tại");
+                                return;
+                            }
+
+                            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                                    .setEnabled(false);
+
+                            AuthApi.changePassword(
+                                    current,
+                                    next,
+                                    AccountSession.token(activity),
+                                    (ok, data, message) -> {
+                                        if (activity.isFinishing()
+                                                || activity.isDestroyed()) {
+                                            return;
+                                        }
+
+                                        dialog.getButton(
+                                                        AlertDialog.BUTTON_POSITIVE)
+                                                .setEnabled(true);
+
+                                        if (ok) {
+                                            dialog.dismiss();
+                                            Toast.makeText(activity,
+                                                    "Đổi mật khẩu thành công",
+                                                    Toast.LENGTH_LONG).show();
+                                        } else {
+                                            Toast.makeText(activity,
+                                                    message,
+                                                    Toast.LENGTH_LONG).show();
+                                        }
+                                    });
+                        }));
+
+        dialog.show();
+    }
+
+
+    private void confirmDeleteAccount() {
+        EditText password = new EditText(activity);
+        password.setSingleLine(true);
+        password.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        password.setHint("Nhập mật khẩu để xác nhận");
+        int padding = (int) (20 * activity.getResources().getDisplayMetrics().density);
+        password.setPadding(padding, padding, padding, padding);
+        new AlertDialog.Builder(activity).setTitle("Xóa tài khoản")
+                .setMessage("Tài khoản sẽ bị vô hiệu hóa và thông tin nhận dạng sẽ được ẩn. Thao tác này không thể hoàn tác.")
+                .setView(password).setNegativeButton(R.string.cancel, null)
+                .setPositiveButton("Xóa tài khoản", (dialog, which) -> {
+                    String pass = password.getText().toString();
+                    if (pass.isEmpty()) { Toast.makeText(activity, "Vui lòng nhập mật khẩu", Toast.LENGTH_SHORT).show(); return; }
+                    activity.findViewById(R.id.settingsAccountDelete).setEnabled(false);
+                    AuthApi.deleteAccount(pass, AccountSession.token(activity), (ok, data, message) -> {
+                        activity.findViewById(R.id.settingsAccountDelete).setEnabled(true);
+                        if (ok) {
+                            AccountSession.clear(activity); refreshAccountUi();
+                            Toast.makeText(activity, "Tài khoản đã được xóa", Toast.LENGTH_LONG).show();
+                        } else Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+                    });
+                }).show();
+    }
+
     private void refreshDate() {
         ((TextView) activity.findViewById(R.id.currentDate)).setText(
                 day(selected).equals(LocalStore.today()) ? "Hôm nay" : new SimpleDateFormat("dd/MM", vietnamese).format(selected.getTime()));
