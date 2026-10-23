@@ -55,6 +55,7 @@ public class DailyHistory {
                 Calendar date = Calendar.getInstance(); date.setTime(format.parse(habit.created));
                 for (String day = format.format(date.getTime()); day.compareTo(today) <= 0;
                         date.add(Calendar.DAY_OF_MONTH, 1), day = format.format(date.getTime())) {
+                    if (habit.scheduleConfigured && !scheduled(habit, date)) continue;
                     upsert(result, "habit", habit.id, day, habit.title, habit.body,
                             habit.progressOn(day), today);
                 }
@@ -63,6 +64,11 @@ public class DailyHistory {
         List<Row> rows = new ArrayList<>(result.values());
         Collections.sort(rows, (a, b) -> { int date = b.date.compareTo(a.date); return date != 0 ? date : a.title.compareTo(b.title); });
         return rows;
+    }
+    private static boolean scheduled(LocalStore.Entry habit, Calendar date) {
+        int index = date.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY ? 6
+                : date.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY;
+        return (habit.weekdays & (1 << index)) != 0;
     }
     private static void upsert(Map<String, Row> rows, String kind, String id, String date,
                                String title, String note, int progress, String today) {

@@ -42,4 +42,28 @@ public class CloudRepositoryTest {
             public void error(String value){error.set(value);done.countDown();}
         });assertTrue(done.await(5,TimeUnit.SECONDS));assertNotNull(error.get());
     }
+    @Test public void taskApiNotEnabledExplainsDevelopmentProfile()throws Exception{
+        server.enqueue(new MockResponse().setResponseCode(404));
+        CountDownLatch done=new CountDownLatch(1);AtomicReference<String> error=new AtomicReference<>();
+        repository.request(repository.tasks.lists(),new CloudRepository.Result<List<CloudModels.TaskList>>(){
+            public void success(List<CloudModels.TaskList> value){error.set("unexpected success");done.countDown();}
+            public void error(String value){error.set(value);done.countDown();}
+        });
+        assertTrue(done.await(5,TimeUnit.SECONDS));
+        assertTrue(error.get().contains("Task Service"));
+        assertTrue(error.get().contains("profile dev"));
+    }
+    @Test public void taskConnectionErrorShowsCorrectReversePort()throws Exception{
+        int port=server.getPort();
+        server.shutdown();
+        CountDownLatch done=new CountDownLatch(1);AtomicReference<String> error=new AtomicReference<>();
+        repository.request(repository.tasks.lists(),new CloudRepository.Result<List<CloudModels.TaskList>>(){
+            public void success(List<CloudModels.TaskList> value){error.set("unexpected success");done.countDown();}
+            public void error(String value){error.set(value);done.countDown();}
+        });
+        assertTrue(done.await(5,TimeUnit.SECONDS));
+        assertTrue(error.get().contains("Task Service"));
+        assertTrue(error.get().contains(":" + port));
+        assertTrue(error.get().contains("adb reverse tcp:" + port + " tcp:" + port));
+    }
 }

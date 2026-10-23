@@ -35,6 +35,11 @@
             <Button android:id="@+id/settingsReport" style="@style/FlatButton" android:layout_width="132dp" android:layout_height="54dp" android:text="Xem   ›" />
         </LinearLayout>
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="80dp" android:padding="12dp" android:gravity="center_vertical">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/personal_info" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/workspace_text" />
+            <Button android:id="@+id/settingsProfile" style="@style/FlatButton" android:layout_width="132dp" android:layout_height="54dp" android:text="@string/edit_profile" />
+        </LinearLayout>
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
         <TextView style="@style/PanelText" android:text="@string/local_account_detail" android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>

@@ -52,6 +52,7 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
             workspace.refreshSyncStatus();
             workspace.checkDayChange();
             workspace.refresh();
+            workspace.refreshHabitsFromServer();
         }
         dayHandler.removeCallbacks(dayCheck); dayHandler.postDelayed(dayCheck, 30000);
     }
@@ -208,6 +209,20 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     }
 
     public void refreshWorkspace() { renderTasks(); workspace.refresh(); }
+    void showAllHabits() { if (workspace != null) workspace.showAllHabits(); }
+    void onHabitSaved(vn.edu.taskmanager.cloud.CloudModels.Habit habit) {
+        if (workspace != null) workspace.onRemoteHabitSaved(habit);
+    }
+    void saveHabitToServer(Integer id, java.util.Map<String, Object> body,
+            vn.edu.taskmanager.cloud.CloudRepository.Result<vn.edu.taskmanager.cloud.CloudModels.Habit> callback) {
+        if (workspace != null) workspace.saveHabitToServer(id, body, callback);
+        else callback.error("Màn hình quản lý thói quen chưa sẵn sàng");
+    }
+
+    @Override protected void onDestroy() {
+        if (workspace != null) workspace.close();
+        super.onDestroy();
+    }
     public void entrySaved(LocalStore.Entry entry) { workspace.entrySaved(entry); }
     public void taskSaved(String date) {
         if (!listId.isEmpty()) { workspace.selectTab(0); return; }

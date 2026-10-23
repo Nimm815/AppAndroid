@@ -21,7 +21,7 @@ xóa (có xác nhận), đánh dấu hoàn thành và bỏ đánh dấu. Tên đ
 ở hai đầu và không được trống. Công việc chưa hoàn thành hiển thị trước.
 Dữ liệu nằm trong `personal_tasks.db` trên điện thoại, không cần mạng.
 Đóng app hoặc khởi động lại điện thoại không xóa dữ liệu; gỡ app hoặc xóa dữ
-liệu ứng dụng sẽ xóa công việc. Chưa có đăng nhập hoặc kết nối backend.
+liệu ứng dụng sẽ xóa công việc. Ứng dụng chưa có màn hình đăng nhập; riêng hồ sơ cá nhân có thể lưu cục bộ hoặc đồng bộ qua Auth Service khi có bearer token hợp lệ.
 
 ## Mở và chạy bằng Android Studio
 
@@ -78,6 +78,16 @@ Kiểm tra thủ công trên app:
 4. Xóa: thử Hủy trước, sau đó xác nhận Xóa.
 5. Đóng app, mở lại; công việc còn lại phải giữ tên và trạng thái.
 6. Xoay máy khi đang nhập tên; bản nháp phải còn.
+
+## Thông tin cá nhân
+
+Trong tab **Cài đặt**, chọn **Thông tin cá nhân → Chỉnh sửa**. Có thể nhập họ tên/email, số điện thoại Việt Nam, ngày sinh và giới tính; chọn ảnh qua bộ chọn ảnh hệ thống, không cần cấp quyền đọc toàn bộ bộ nhớ.
+
+Khi chưa có phiên đăng nhập, nút **Lưu thay đổi** lưu hồ sơ và ảnh trong vùng dữ liệu riêng của ứng dụng trên điện thoại. Màn hình ghi rõ trạng thái chưa đồng bộ MySQL; không tạo tài khoản hoặc user ID giả. Android hiện chưa có luồng đăng nhập/đăng ký, vì vậy muốn đọc/ghi hồ sơ MySQL cần tích hợp bearer token hợp lệ trước.
+
+Khi có token, Android gọi Auth Service tại `AUTH_URL` (mặc định debug `http://127.0.0.1:8081/`): `GET/PUT /api/users/me` và `POST/GET /api/users/me/avatar`. Để thử trên USB, chạy `backend-spring\tools\Start-TaskMindDev.ps1` trước; script sẽ thử chuyển tiếp cổng Auth `8081` cùng Task `8082` và Productivity `8083`. Nếu ADB báo cổng 8081 trên điện thoại đang được ứng dụng khác sử dụng, Auth reverse không hoạt động cho đến khi giải phóng cổng đó; các hồ sơ cục bộ vẫn dùng được.
+
+`PersonalProfileActivity` là giao diện, `PersonalProfileViewModel` giữ trạng thái khi xoay màn hình và gọi Retrofit; `ProfileValidator` kiểm tra dữ liệu trước khi gửi. Nếu API chưa xác nhận thành công, app không hiển thị trạng thái đã lưu máy chủ.
 
 ## Các màn hình tham khảo HelloHabit
 
@@ -208,4 +218,3 @@ Các lần mở tiếp theo vào thẳng Trang chủ, chưa cần đăng nhập.
 
 Ảnh minh họa không tạo công việc hoặc thay đổi dữ liệu Room. Cài bản cập nhật
 đè lên app hiện có; không gỡ app hoặc xóa dữ liệu để xem hướng dẫn.
-
