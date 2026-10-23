@@ -57,6 +57,15 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     }
     @Override protected void onPause() { vn.edu.taskmanager.sync.WorkspaceSync.state(this).unregisterOnSharedPreferenceChangeListener(syncListener); dayHandler.removeCallbacks(dayCheck); super.onPause(); }
 
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && intent.hasExtra("open_tab") && workspace != null) {
+            workspace.selectTab(intent.getIntExtra("open_tab", 0));
+        }
+    }
+
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -76,6 +85,9 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
             allDates = state.getBoolean("allDates", false);
         }
         workspace = new WorkspaceController(this, state);
+        if (getIntent() != null && getIntent().hasExtra("open_tab")) {
+            workspace.selectTab(getIntent().getIntExtra("open_tab", 0));
+        }
         model.taskLists.observe(this, lists -> renderTasks());
         model.getHistoryChanged().observe(this, ignored -> workspace.refresh());
         model.tasks.observe(this, tasks -> {

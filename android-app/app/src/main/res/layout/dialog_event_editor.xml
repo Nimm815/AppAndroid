@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="20dp"
+    android:background="@color/workspace_surface">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tiêu đề sự kiện *"
+            android:textColor="@color/workspace_text"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/eventTitle"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/control_gray"
+            android:padding="12dp"
+            android:hint="Ví dụ: Đi bộ buổi tối, Họp nhóm"
+            android:textColor="@color/workspace_text"
+            android:maxLength="80"
+            android:singleLine="true" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/eventAllDay"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Sự kiện cả ngày"
+            android:textColor="@color/workspace_text"
+            android:textSize="15sp"
+            android:layout_marginTop="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ngày diễn ra"
+            android:textColor="@color/workspace_text"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="6dp" />
+
+        <Button
+            android:id="@+id/eventDate"
+            style="@style/FlatButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="2026-10-22" />
+
+        <LinearLayout
+            android:id="@+id/eventTimeContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="12dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Bắt đầu"
+                    android:textColor="@color/workspace_muted"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="4dp" />
+
+                <Button
+                    android:id="@+id/eventStartTime"
+                    style="@style/FlatButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="09:00" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="12dp"
+                android:layout_height="1dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Kết thúc"
+                    android:textColor="@color/workspace_muted"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="4dp" />
+
+                <Button
+                    android:id="@+id/eventEndTime"
+                    style="@style/FlatButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="09:30" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Thói quen liên quan (tùy chọn)"
+            android:textColor="@color/workspace_text"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="6dp" />
+
+        <Spinner
+            android:id="@+id/eventHabitChoice"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/control_gray"
+            android:padding="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nhắc nhở trước"
+            android:textColor="@color/workspace_text"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="6dp" />
+
+        <Spinner
+            android:id="@+id/eventReminderChoice"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/control_gray"
+            android:padding="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Mô tả"
+            android:textColor="@color/workspace_text"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/eventDescription"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:background="@drawable/control_gray"
+            android:padding="12dp"
+            android:gravity="top|start"
+            android:hint="Ghi chú thêm về sự kiện (tối đa 500 ký tự)"
+            android:textColor="@color/workspace_text"
+            android:maxLength="500"
+            android:inputType="textMultiLine" />
+
+    </LinearLayout>
+</ScrollView>
