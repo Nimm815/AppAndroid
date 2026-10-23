@@ -19,6 +19,10 @@ public class LocalStore {
         public String label = "";
         public boolean bookmarked;
         public String sourceId = "", sourceType = "";
+        public String icon = "🌱", color = "#5B6FDE", targetUnit = "lần", reminderTime = "";
+        public int targetCount = 1, weekdays = 127, currentStreak, longestStreak, completedDays, scheduledDays;
+        public double completionRate;
+        public boolean scheduleConfigured, reminderEnabled;
         public int progress = -1;
         public java.util.Map<String, Integer> dailyProgress = new java.util.HashMap<>();
         public List<String> days = new ArrayList<>();
@@ -28,8 +32,10 @@ public class LocalStore {
         }
     }
     private final SharedPreferences preferences;
+    private final Context application;
     public LocalStore(Context context) {
-        preferences = context.getSharedPreferences("personal_workspace", Context.MODE_PRIVATE);
+        application = context.getApplicationContext();
+        preferences = context.getSharedPreferences(vn.edu.taskmanager.auth.Session.storage(context,"personal_workspace"), Context.MODE_PRIVATE);
     }
     public static String today() { return day(new Date()); }
     public static String day(Date date) {
@@ -53,6 +59,19 @@ public class LocalStore {
                 entry.bookmarked = value.optBoolean("bookmarked");
                 entry.sourceId = value.optString("sourceId");
                 entry.sourceType = value.optString("sourceType");
+                entry.icon = value.optString("icon", "🌱");
+                entry.color = value.optString("color", "#5B6FDE");
+                entry.targetUnit = value.optString("targetUnit", "lần");
+                entry.targetCount = value.optInt("targetCount", 1);
+                entry.weekdays = value.optInt("weekdays", 127);
+                entry.currentStreak = value.optInt("currentStreak");
+                entry.longestStreak = value.optInt("longestStreak");
+                entry.completedDays = value.optInt("completedDays");
+                entry.scheduledDays = value.optInt("scheduledDays");
+                entry.completionRate = value.optDouble("completionRate");
+                entry.scheduleConfigured = value.optBoolean("scheduleConfigured");
+                entry.reminderEnabled = value.optBoolean("reminderEnabled");
+                entry.reminderTime = value.optString("reminderTime");
                 entry.progress = value.optInt("progress", -1);
                 JSONObject progress = value.optJSONObject("dailyProgress");
                 if (progress != null) for (java.util.Iterator<String> keys = progress.keys(); keys.hasNext();) {
@@ -81,13 +100,19 @@ public class LocalStore {
             for (int i = all.size() - 1; i >= 0; i--) if (all.get(i).id.equals(entry.id)) all.remove(i);
             all.add(entry);
             write(all);
+            if ("habit".equals(entry.type) && !"server_api".equals(entry.sourceType))
+                vn.edu.taskmanager.sync.WorkspaceSync.changed(application);
         }
     }
     public void delete(String id) {
         synchronized (LocalStore.class) {
             List<Entry> all = entries(null);
+            Entry removed = null;
+            for (Entry entry : all) if (entry.id.equals(id)) removed = entry;
             for (int i = all.size() - 1; i >= 0; i--) if (all.get(i).id.equals(id)) all.remove(i);
             write(all);
+            if (removed != null && "habit".equals(removed.type) && !"server_api".equals(removed.sourceType))
+                vn.edu.taskmanager.sync.WorkspaceSync.changed(application);
         }
     }
     public void checkHabit(Entry entry, String day, boolean checked) {
@@ -129,10 +154,95 @@ public class LocalStore {
                         .put("created", entry.created).put("bookmarked", entry.bookmarked)
                         .put("days", new JSONArray(entry.days)).put("sourceId", entry.sourceId)
                         .put("sourceType", entry.sourceType).put("progress", entry.progress)
-                        .put("dailyProgress", new JSONObject(entry.dailyProgress));
+                        .put("dailyProgress", new JSONObject(entry.dailyProgress))
+                        .put("icon", entry.icon).put("color", entry.color).put("targetUnit", entry.targetUnit)
+                        .put("targetCount", entry.targetCount).put("weekdays", entry.weekdays)
+                        .put("currentStreak", entry.currentStreak).put("longestStreak", entry.longestStreak)
+                        .put("completedDays", entry.completedDays).put("scheduledDays", entry.scheduledDays)
+                        .put("completionRate", entry.completionRate).put("scheduleConfigured", entry.scheduleConfigured)
+                        .put("reminderEnabled", entry.reminderEnabled).put("reminderTime", entry.reminderTime);
                 array.put(value);
             }
         } catch (JSONException error) { throw new IllegalStateException(error); }
         preferences.edit().putString("entries", array.toString()).apply();
+    }
+
+    public List<Reminder> reminders() {
+        List<Reminder> result = new ArrayList<>();
+        try {
+            JSONArray array = new JSONArray(preferences.getString("reminders", "[]"));
+            for (int i = 0; i < array.length(); i++) {
+                result.add(Reminder.fromJson(array.getJSONObject(i)));
+            }
+        } catch (JSONException e) {
+            // Trả về rỗng nếu lỗi định dạng
+        }
+        return result;
+    }
+
+    public Reminder findReminder(String id) {
+        if (id == null) return null;
+        for (Reminder r : reminders()) {
+            if (id.equals(r.id)) return r;
+        }
+        return null;
+    }
+
+    public Reminder findReminderByEvent(String eventId) {
+        if (eventId == null || eventId.isEmpty()) return null;
+        for (Reminder r : reminders()) {
+            if (r.isFromEvent && eventId.equals(r.targetId)) return r;
+        }
+        return null;
+    }
+
+    public void saveReminder(Reminder reminder) {
+        synchronized (LocalStore.class) {
+            List<Reminder> all = reminders();
+            if (reminder.id == null || reminder.id.isEmpty()) {
+                reminder.id = UUID.randomUUID().toString();
+            }
+            for (int i = all.size() - 1; i >= 0; i--) {
+                if (all.get(i).id.equals(reminder.id)) {
+                    all.remove(i);
+                }
+            }
+            all.add(reminder);
+            writeReminders(all);
+        }
+    }
+
+    public void deleteReminder(String id) {
+        if (id == null) return;
+        synchronized (LocalStore.class) {
+            List<Reminder> all = reminders();
+            for (int i = all.size() - 1; i >= 0; i--) {
+                if (all.get(i).id.equals(id)) {
+                    all.remove(i);
+                }
+            }
+            writeReminders(all);
+        }
+    }
+
+    public void deleteReminderByEvent(String eventId) {
+        if (eventId == null || eventId.isEmpty()) return;
+        synchronized (LocalStore.class) {
+            List<Reminder> all = reminders();
+            for (int i = all.size() - 1; i >= 0; i--) {
+                if (all.get(i).isFromEvent && eventId.equals(all.get(i).targetId)) {
+                    all.remove(i);
+                }
+            }
+            writeReminders(all);
+        }
+    }
+
+    public void writeReminders(List<Reminder> all) {
+        JSONArray array = new JSONArray();
+        for (Reminder r : all) {
+            array.put(r.toJson());
+        }
+        preferences.edit().putString("reminders", array.toString()).apply();
     }
 }

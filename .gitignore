@@ -20,3 +20,8 @@
 # Java keystores
 *.jks
 *.keystore
+test_write.txt
+admin-web/node_modules/
+admin-web/dist/
+admin-web/.vite/
+backend-spring/target/

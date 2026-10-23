@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
@@ -80,10 +81,14 @@ public class EntryEditorDialog extends DialogFragment {
         timeButton.setVisibility(event || "note".equals(type) ? View.VISIBLE : View.GONE);
         dateButton.setOnClickListener(v -> {
             String[] parts = date.split("-");
-            new DatePickerDialog(requireContext(), (picker, year, month, day) -> {
+            DatePickerDialog picker = new DatePickerDialog(requireContext(), (view1, year, month, day) -> {
                 date = String.format(Locale.ROOT, "%04d-%02d-%02d", year, month + 1, day);
                 dateButton.setText(date);
-            }, Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2])).show();
+            }, Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]));
+            if ("note".equals(type)) {
+                picker.getDatePicker().setMaxDate(System.currentTimeMillis());
+            }
+            picker.show();
         });
         timeButton.setOnClickListener(v -> {
             String[] parts = time.split(":");
@@ -93,10 +98,57 @@ public class EntryEditorDialog extends DialogFragment {
             }, Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), true).show();
         });
         String heading = "habit".equals(type) ? "Thói quen hằng ngày" : event ? "Sự kiện lịch" : old == null ? "Ghi chú hoạt động" : "Sửa ghi nhận hoạt động";
-        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setTitle(heading).setView(view)
-                .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.save, null).create();
+        AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(requireContext())
+                .setTitle(heading)
+                .setView(view)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.save, null);
+
+        if (old != null && "note".equals(type)) {
+            dialogBuilder.setNeutralButton(R.string.delete, (d, w) -> {
+                new AlertDialog.Builder(requireContext())
+                        .setTitle("Xóa ghi chú?")
+                        .setMessage("Bạn có muốn xóa ghi chú này không?")
+                        .setNegativeButton(R.string.cancel, null)
+                        .setPositiveButton(R.string.delete, (cd, cw) -> {
+                            store.delete(old.id);
+                            ((MainActivity) requireActivity()).refreshWorkspace();
+                        })
+                        .show();
+            });
+        }
+
+        AlertDialog dialog = dialogBuilder.create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String name = title.getText().toString().trim();
+            String content = body.getText().toString().trim();
+
+            if ("note".equals(type)) {
+                // Kiểm tra thời điểm ghi chú: không cho phép thời điểm tương lai (UC09)
+                String today = LocalStore.today();
+                if (date.compareTo(today) > 0) {
+                    Toast.makeText(requireContext(), "Không thể chọn ngày trong tương lai cho ghi chú", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (date.equals(today)) {
+                    String nowTime = new java.text.SimpleDateFormat("HH:mm", Locale.ROOT).format(new java.util.Date());
+                    if (time.compareTo(nowTime) > 0) {
+                        Toast.makeText(requireContext(), "Không thể chọn giờ trong tương lai cho ghi chú", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                }
+
+                // Kiểm tra độ dài nội dung 1-2.000 ký tự (UC09)
+                if (name.isEmpty() && content.isEmpty()) {
+                    title.setError("Vui lòng nhập nội dung ghi chú");
+                    return;
+                }
+                if (content.length() > 2000) {
+                    body.setError("Nội dung không vượt quá 2.000 ký tự");
+                    return;
+                }
+            }
+
             int progress = old == null ? -1 : old.progress;
             int choice = activityChoice == null ? 0 : activityChoice.getSelectedItemPosition();
             if (choice > 0 && name.isEmpty()) name = activityChoice.getSelectedItem().toString().split(" · ", 2)[1];
@@ -105,9 +157,16 @@ public class EntryEditorDialog extends DialogFragment {
                 catch (NumberFormatException error) { completion.setError("Nhập số từ 0 đến 100"); return; }
                 if (progress < 0 || progress > 100) { completion.setError("Nhập số từ 0 đến 100"); return; }
             }
-            if (name.isEmpty()) { title.setError("Vui lòng nhập tiêu đề"); return; }
+            if (name.isEmpty()) {
+                if (!content.isEmpty()) {
+                    name = content.length() > 30 ? content.substring(0, 30) + "..." : content;
+                } else {
+                    title.setError("Vui lòng nhập tiêu đề");
+                    return;
+                }
+            }
             LocalStore.Entry entry = old == null ? new LocalStore.Entry() : old;
-            entry.type = type; entry.title = name; entry.body = body.getText().toString().trim();
+            entry.type = type; entry.title = name; entry.body = content;
             entry.label = label.getText().toString().trim();
             if (activityChoice != null) {
                 entry.sourceId = sourceIds.get(choice); entry.sourceType = sourceTypes.get(choice); entry.progress = progress;

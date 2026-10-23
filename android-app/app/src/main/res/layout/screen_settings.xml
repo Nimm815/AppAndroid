@@ -19,6 +19,9 @@
                 android:layout_marginTop="8dp"
                 android:text="Đổi mật khẩu"
                 android:visibility="gone" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="60dp" android:layout_margin="14dp" android:padding="8dp" android:background="@drawable/control_soft" android:gravity="center" android:orientation="vertical">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/local_account" android:textSize="16sp" android:textColor="@color/workspace_text" />
+            <TextView android:id="@+id/syncStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/sync_not_started" android:textSize="12sp" android:textColor="@color/workspace_muted" />
         </LinearLayout>
         <Button android:id="@+id/settingsSearch" style="@style/WideButton" android:text="@string/search_everything" android:background="@drawable/box_empty" android:gravity="start|center_vertical" />
         <Button android:id="@+id/help" style="@style/WideButton" android:text="@string/help" android:layout_marginTop="14dp" />
@@ -42,6 +45,11 @@
         <LinearLayout android:layout_width="match_parent" android:layout_height="80dp" android:padding="12dp" android:gravity="center_vertical">
             <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Báo cáo thói quen" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/workspace_text" />
             <Button android:id="@+id/settingsReport" style="@style/FlatButton" android:layout_width="132dp" android:layout_height="54dp" android:text="Xem   ›" />
+        </LinearLayout>
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="80dp" android:padding="12dp" android:gravity="center_vertical">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/personal_info" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/workspace_text" />
+            <Button android:id="@+id/settingsProfile" style="@style/FlatButton" android:layout_width="132dp" android:layout_height="54dp" android:text="@string/edit_profile" />
         </LinearLayout>
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
         <TextView style="@style/PanelText" android:text="@string/local_account_detail" android:textSize="13sp" />

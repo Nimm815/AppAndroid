@@ -9,7 +9,6 @@ import androidx.room.RoomDatabase;
 public abstract class TaskDatabase extends RoomDatabase {
     public abstract TaskDao taskDao();
     public abstract TaskListDao taskListDao();
-    private static volatile TaskDatabase instance;
     public static final androidx.room.migration.Migration MIGRATION_1_2 =
             new androidx.room.migration.Migration(1, 2) {
                 @Override public void migrate(@androidx.annotation.NonNull androidx.sqlite.db.SupportSQLiteDatabase db) {
@@ -55,15 +54,15 @@ public abstract class TaskDatabase extends RoomDatabase {
                 }
             };
 
-    public static TaskDatabase getInstance(Context context) {
-        if (instance == null) {
-            synchronized (TaskDatabase.class) {
-                if (instance == null) {
-                    instance = Room.databaseBuilder(context.getApplicationContext(),
-                            TaskDatabase.class, "personal_tasks.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build();
-                }
-            }
+    private static final java.util.Map<String,TaskDatabase> databases = new java.util.HashMap<>();
+    public static synchronized TaskDatabase getInstance(Context context) {
+        String name=vn.edu.taskmanager.auth.Session.storage(context,"personal_tasks.db");
+        TaskDatabase database=databases.get(name);
+        if(database==null){
+            database=Room.databaseBuilder(context.getApplicationContext(),TaskDatabase.class,name)
+                .addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6).build();
+            databases.put(name,database);
         }
-        return instance;
+        return database;
     }
 }

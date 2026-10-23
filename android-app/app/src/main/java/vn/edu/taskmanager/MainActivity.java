@@ -31,16 +31,41 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     private String query = "";
     private String listId = "";
     private WorkspaceController workspace;
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener syncListener = (preferences, key) -> {
+        if ("status".equals(key)) runOnUiThread(() -> {
+            String status = preferences.getString("status", "");
+            if (workspace != null) workspace.refreshSyncStatus();
+            if (status.startsWith("Chưa lưu"))
+                Toast.makeText(this, status, Toast.LENGTH_LONG).show();
+        });
+    };
     private final android.os.Handler dayHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable dayCheck = new Runnable() {
         @Override public void run() { if (workspace != null) workspace.checkDayChange(); dayHandler.postDelayed(this, 30000); }
     };
     @Override protected void onResume() {
         super.onResume();
-        if (workspace != null) { workspace.checkDayChange(); workspace.refresh(); }
+        if (isFinishing()) return;
+        vn.edu.taskmanager.sync.WorkspaceSync.state(this).registerOnSharedPreferenceChangeListener(syncListener);
+        if (vn.edu.taskmanager.sync.WorkspaceSync.configured(this)) vn.edu.taskmanager.sync.WorkspaceSync.enqueue(this);
+        if (workspace != null) {
+            workspace.refreshSyncStatus();
+            workspace.checkDayChange();
+            workspace.refresh();
+            workspace.refreshHabitsFromServer();
+        }
         dayHandler.removeCallbacks(dayCheck); dayHandler.postDelayed(dayCheck, 30000);
     }
-    @Override protected void onPause() { dayHandler.removeCallbacks(dayCheck); super.onPause(); }
+    @Override protected void onPause() { vn.edu.taskmanager.sync.WorkspaceSync.state(this).unregisterOnSharedPreferenceChangeListener(syncListener); dayHandler.removeCallbacks(dayCheck); super.onPause(); }
+
+    @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null && intent.hasExtra("open_tab") && workspace != null) {
+            workspace.selectTab(intent.getIntExtra("open_tab", 0));
+        }
+    }
 
 
     @Override protected void onCreate(Bundle state) {
@@ -61,6 +86,9 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
             allDates = state.getBoolean("allDates", false);
         }
         workspace = new WorkspaceController(this, state);
+        if (getIntent() != null && getIntent().hasExtra("open_tab")) {
+            workspace.selectTab(getIntent().getIntExtra("open_tab", 0));
+        }
         model.taskLists.observe(this, lists -> renderTasks());
         model.getHistoryChanged().observe(this, ignored -> workspace.refresh());
         model.tasks.observe(this, tasks -> {
@@ -98,6 +126,7 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
         });
         findViewById(R.id.addTask).setOnClickListener(v -> workspace.add());
         findViewById(R.id.editCurrentList).setOnClickListener(v -> editTaskList(listId));
+
     }
 
     private void renderTasks() {
@@ -180,6 +209,20 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     }
 
     public void refreshWorkspace() { renderTasks(); workspace.refresh(); }
+    void showAllHabits() { if (workspace != null) workspace.showAllHabits(); }
+    void onHabitSaved(vn.edu.taskmanager.cloud.CloudModels.Habit habit) {
+        if (workspace != null) workspace.onRemoteHabitSaved(habit);
+    }
+    void saveHabitToServer(Integer id, java.util.Map<String, Object> body,
+            vn.edu.taskmanager.cloud.CloudRepository.Result<vn.edu.taskmanager.cloud.CloudModels.Habit> callback) {
+        if (workspace != null) workspace.saveHabitToServer(id, body, callback);
+        else callback.error("Màn hình quản lý thói quen chưa sẵn sàng");
+    }
+
+    @Override protected void onDestroy() {
+        if (workspace != null) workspace.close();
+        super.onDestroy();
+    }
     public void entrySaved(LocalStore.Entry entry) { workspace.entrySaved(entry); }
     public void taskSaved(String date) {
         if (!listId.isEmpty()) { workspace.selectTab(0); return; }

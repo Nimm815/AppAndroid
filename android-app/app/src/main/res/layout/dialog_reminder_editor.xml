@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="20dp"
+    android:background="@color/workspace_surface">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Nội dung nhắc việc *"
+            android:textColor="@color/workspace_text"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/reminderTitle"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/control_gray"
+            android:padding="12dp"
+            android:hint="Ví dụ: Đọc sách, Tưới cây, Uống nước"
+            android:textColor="@color/workspace_text"
+            android:maxLength="80"
+            android:singleLine="true" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Gắn với thói quen (tùy chọn)"
+            android:textColor="@color/workspace_text"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="6dp" />
+
+        <Spinner
+            android:id="@+id/reminderHabitChoice"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/control_gray"
+            android:padding="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Giờ nhắc *"
+            android:textColor="@color/workspace_text"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="6dp" />
+
+        <Button
+            android:id="@+id/reminderTime"
+            style="@style/FlatButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="09:00" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cách lặp lại"
+            android:textColor="@color/workspace_text"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="6dp" />
+
+        <RadioGroup
+            android:id="@+id/reminderRepeatGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/repeatDaily"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Hằng ngày"
+                android:textColor="@color/workspace_text"
+                android:checked="true" />
+
+            <RadioButton
+                android:id="@+id/repeatOnce"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Một lần"
+                android:textColor="@color/workspace_text" />
+
+            <RadioButton
+                android:id="@+id/repeatWeekdays"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Chọn thứ trong tuần"
+                android:textColor="@color/workspace_text" />
+        </RadioGroup>
+
+        <!-- Ngày chọn cho loại Một lần -->
+        <LinearLayout
+            android:id="@+id/reminderDateContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="6dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ngày nhắc"
+                android:textColor="@color/workspace_muted"
+                android:textSize="13sp"
+                android:layout_marginBottom="4dp" />
+
+            <Button
+                android:id="@+id/reminderDate"
+                style="@style/FlatButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="2026-10-22" />
+        </LinearLayout>
+
+        <!-- Thứ trong tuần cho loại weekdays -->
+        <LinearLayout
+            android:id="@+id/reminderWeekdaysContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            android:layout_marginTop="8dp"
+            android:gravity="center">
+
+            <ToggleButton
+                android:id="@+id/dayMon"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:textOn="T2"
+                android:textOff="T2"
+                android:textSize="12sp"
+                android:background="@drawable/control_gray"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/dayTue"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:textOn="T3"
+                android:textOff="T3"
+                android:textSize="12sp"
+                android:background="@drawable/control_gray"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/dayWed"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:textOn="T4"
+                android:textOff="T4"
+                android:textSize="12sp"
+                android:background="@drawable/control_gray"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/dayThu"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:textOn="T5"
+                android:textOff="T5"
+                android:textSize="12sp"
+                android:background="@drawable/control_gray"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/dayFri"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:textOn="T6"
+                android:textOff="T6"
+                android:textSize="12sp"
+                android:background="@drawable/control_gray"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/daySat"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:textOn="T7"
+                android:textOff="T7"
+                android:textSize="12sp"
+                android:background="@drawable/control_gray"
+                android:layout_margin="2dp" />
+
+            <ToggleButton
+                android:id="@+id/daySun"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:textOn="CN"
+                android:textOff="CN"
+                android:textSize="12sp"
+                android:background="@drawable/control_gray"
+                android:layout_margin="2dp" />
+        </LinearLayout>
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/reminderEnabled"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Bật nhắc nhở"
+            android:textColor="@color/workspace_text"
+            android:textSize="15sp"
+            android:checked="true"
+            android:layout_marginTop="14dp" />
+
+    </LinearLayout>
+</ScrollView>
