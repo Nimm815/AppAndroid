@@ -11,9 +11,152 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import vn.edu.taskmanager.data.LocalStore;
 import static org.junit.Assert.*;
+import vn.edu.taskmanager.cloud.CloudModels;
 
 @RunWith(AndroidJUnit4.class)
 public class WorkspaceTest {
+    @Test public void savedRemoteHabitIsShownInHabitList() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                String localId = "api-habit-" + (System.currentTimeMillis() % 1_000_000_000);
+                String offDayId = localId + "-off-day";
+                LocalStore store = new LocalStore(activity);
+                store.delete(localId);
+                store.delete(offDayId);
+                try {
+                    activity.selectWorkspaceTab(3);
+                    CloudModels.Habit habit = new CloudModels.Habit();
+                    habit.id = Integer.parseInt(localId.substring("api-habit-".length()));
+                    habit.name = "Habit vừa lưu";
+                    habit.description = "";
+                    habit.icon = "🌱";
+                    habit.color = "#5B6FDE";
+                    habit.startDate = LocalStore.today();
+                    java.util.Calendar today = java.util.Calendar.getInstance();
+                    int weekdayIndex = today.get(java.util.Calendar.DAY_OF_WEEK) == java.util.Calendar.SUNDAY
+                            ? 6 : today.get(java.util.Calendar.DAY_OF_WEEK) - java.util.Calendar.MONDAY;
+                    habit.weekdays = 1 << weekdayIndex;
+                    habit.scheduleConfigured = true;
+                    habit.targetCount = 1;
+
+                    activity.onHabitSaved(habit);
+
+                    assertEquals(0, ((ViewFlipper) activity.findViewById(R.id.screens)).getDisplayedChild());
+                    assertEquals(android.view.View.VISIBLE, activity.findViewById(R.id.habitScroll).getVisibility());
+                    assertNotNull(store.find(localId));
+                    assertTrue("The saved habit should appear on the current selected day.",
+                            containsHabit(activity, "Habit vừa lưu"));
+
+                    LocalStore.Entry offDayHabit = new LocalStore.Entry();
+                    offDayHabit.id = offDayId;
+                    offDayHabit.type = "habit";
+                    offDayHabit.sourceType = "server_api";
+                    offDayHabit.sourceId = "999999";
+                    offDayHabit.title = "Habit ngày khác";
+                    offDayHabit.created = LocalStore.today();
+                    offDayHabit.date = offDayHabit.created;
+                    offDayHabit.scheduleConfigured = true;
+                    offDayHabit.weekdays = 1 << ((weekdayIndex + 1) % 7);
+                    store.save(offDayHabit);
+
+                    activity.showAllHabits();
+                    assertTrue("All habits should include habits not scheduled today.",
+                            containsHabit(activity, "Habit ngày khác"));
+                } finally {
+                    store.delete(localId);
+                    store.delete(offDayId);
+                    activity.refreshWorkspace();
+                }
+            });
+        }
+    }
+
+    private static boolean containsHabit(MainActivity activity, String title) {
+        android.widget.LinearLayout rows = activity.findViewById(R.id.habitEntries);
+        for (int row = 0; row < rows.getChildCount(); row++) {
+            android.view.View card = rows.getChildAt(row);
+            if (!(card instanceof android.widget.LinearLayout)) continue;
+            android.widget.LinearLayout cardLayout = (android.widget.LinearLayout) card;
+            for (int child = 0; child < cardLayout.getChildCount(); child++) {
+                android.view.View details = cardLayout.getChildAt(child);
+                if (!(details instanceof android.widget.LinearLayout)) continue;
+                android.widget.LinearLayout detailLayout = (android.widget.LinearLayout) details;
+                if (detailLayout.getChildCount() > 0
+                        && detailLayout.getChildAt(0) instanceof android.widget.TextView
+                        && title.contentEquals(((android.widget.TextView) detailLayout.getChildAt(0)).getText())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Test public void habitEditorOpensClosesAndRestoresFormAfterActivityRecreation() throws Exception {
+        assertTrue(java.lang.reflect.Modifier.isPublic(HabitEditorDialog.class.getModifiers()));
+        assertTrue(java.lang.reflect.Modifier.isPublic(HabitEditorDialog.class
+                .getConstructor().getModifiers()));
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                HabitEditorDialog.create(null).show(activity.getSupportFragmentManager(), "habit_editor");
+                activity.getSupportFragmentManager().executePendingTransactions();
+                HabitEditorDialog dialog = (HabitEditorDialog) activity.getSupportFragmentManager()
+                        .findFragmentByTag("habit_editor");
+                assertNotNull(dialog);
+                assertTrue(dialog.isAdded());
+                android.app.Dialog window = dialog.requireDialog();
+                java.util.Calendar today = java.util.Calendar.getInstance();
+                int todayIndex = today.get(java.util.Calendar.DAY_OF_WEEK) == java.util.Calendar.SUNDAY
+                        ? 6 : today.get(java.util.Calendar.DAY_OF_WEEK) - java.util.Calendar.MONDAY;
+                android.widget.LinearLayout firstWeekdays = window.findViewById(R.id.habitWeekdaysFirst);
+                android.widget.LinearLayout secondWeekdays = window.findViewById(R.id.habitWeekdaysSecond);
+                android.widget.CheckBox todayCheckbox = todayIndex < 4
+                        ? (android.widget.CheckBox) firstWeekdays.getChildAt(todayIndex)
+                        : (android.widget.CheckBox) secondWeekdays.getChildAt(todayIndex - 4);
+                assertTrue("The new habit should be scheduled on the selected start date.", todayCheckbox.isChecked());
+                ((android.widget.EditText) window.findViewById(R.id.habitName))
+                        .setText("Thói quen được khôi phục");
+                ((android.widget.CheckBox) ((android.widget.LinearLayout)
+                        window.findViewById(R.id.habitWeekdaysFirst)).getChildAt(0)).setChecked(false);
+                window.findViewById(R.id.habitColor).performClick();
+                activity.getSupportFragmentManager().executePendingTransactions();
+                HabitColorPickerDialog picker = (HabitColorPickerDialog) activity.getSupportFragmentManager()
+                        .findFragmentByTag("habit_color_picker");
+                assertNotNull(picker);
+                android.widget.GridLayout palette = picker.requireDialog()
+                        .findViewById(R.id.habitColorPalette);
+                palette.getChildAt(1).performClick();
+                activity.getSupportFragmentManager().executePendingTransactions();
+                assertEquals("#2E9D62", window.findViewById(R.id.habitColor).getTag());
+            });
+            scenario.recreate();
+            scenario.onActivity(activity -> {
+                HabitEditorDialog dialog = (HabitEditorDialog) activity.getSupportFragmentManager()
+                        .findFragmentByTag("habit_editor");
+                assertNotNull(dialog);
+                assertTrue(dialog.isAdded());
+                assertEquals("Thói quen được khôi phục",
+                        ((android.widget.EditText) dialog.requireDialog().findViewById(R.id.habitName))
+                                .getText().toString());
+                assertFalse(((android.widget.CheckBox) ((android.widget.LinearLayout)
+                        dialog.requireDialog().findViewById(R.id.habitWeekdaysFirst))
+                        .getChildAt(0)).isChecked());
+                assertEquals("#2E9D62", dialog.requireDialog().findViewById(R.id.habitColor).getTag());
+                dialog.dismissNow();
+                assertNull(activity.getSupportFragmentManager().findFragmentByTag("habit_editor"));
+                HabitEditorDialog.create(null).show(activity.getSupportFragmentManager(), "habit_editor");
+                activity.getSupportFragmentManager().executePendingTransactions();
+                assertNotNull(activity.getSupportFragmentManager().findFragmentByTag("habit_editor"));
+            });
+            scenario.onActivity(activity -> {
+                HabitEditorDialog dialog = (HabitEditorDialog) activity.getSupportFragmentManager()
+                        .findFragmentByTag("habit_editor");
+                assertNotNull(dialog);
+                dialog.dismissNow();
+                assertNull(activity.getSupportFragmentManager().findFragmentByTag("habit_editor"));
+            });
+        }
+    }
+
     @Test public void prioritySelectionSurvivesRotationAndColorsScheduledTaskOnly() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
@@ -247,7 +390,10 @@ public class WorkspaceTest {
                 assertEquals(1, ((ViewFlipper) activity.findViewById(R.id.screens)).getDisplayedChild());
                 activity.findViewById(R.id.navCalendar).performClick();
                 assertEquals(2, ((ViewFlipper) activity.findViewById(R.id.screens)).getDisplayedChild());
-                assertTrue(((android.widget.LinearLayout) activity.findViewById(R.id.calendarGrid)).getChildCount() == 24);
+                android.widget.TableLayout month = activity.findViewById(R.id.calendarMonthTable);
+                assertEquals(6, month.getChildCount());
+                for (int i = 0; i < month.getChildCount(); i++)
+                    assertEquals(7, ((android.widget.TableRow) month.getChildAt(i)).getChildCount());
                 activity.findViewById(R.id.navSettings).performClick();
             });
             scenario.recreate();

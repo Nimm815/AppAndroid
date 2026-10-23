@@ -6,6 +6,10 @@ import okhttp3.OkHttpClient;
 import retrofit2.*;
 import retrofit2.converter.gson.GsonConverterFactory;
 import java.util.*;
+import java.net.ConnectException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 
 /** Asynchronous requests; cancel callbacks when the owning screen is destroyed. */
@@ -36,7 +40,10 @@ public final class CloudRepository {
                     result.success(response.body());return;
                 }
                 String message="Lỗi HTTP "+response.code()+". Hãy thử tải lại.";
-                if(response.code()==404) message="Không tìm thấy dữ liệu hoặc API chưa bật profile dev.";
+                if(response.code()==404) {
+                    String service = serviceName(c);
+                    message=service + " chưa mở API ở đường dẫn này. Hãy khởi động backend với profile dev.";
+                }
                 try { if(response.errorBody()!=null) {
                     String body=response.errorBody().string();
                     var error=JsonParser.parseString(body).getAsJsonObject();
@@ -46,9 +53,28 @@ public final class CloudRepository {
             }
             public void onFailure(Call<T> c,Throwable error) {
                 calls.remove(c);if(closed||c.isCanceled())return;
-                result.error("Không kết nối được máy chủ hoặc dữ liệu trả về không hợp lệ. Kiểm tra mạng, địa chỉ và cổng, rồi tải lại.");
+                okhttp3.HttpUrl url = c.request().url();
+                int port = url.port();
+                String detail = causedBy(error, ConnectException.class) || causedBy(error, SocketException.class)
+                        ? "Không có dịch vụ lắng nghe hoặc chưa chuyển tiếp cổng."
+                        : causedBy(error, UnknownHostException.class) ? "Không tìm thấy địa chỉ máy chủ."
+                        : causedBy(error, SocketTimeoutException.class) ? "Máy chủ phản hồi quá thời gian chờ."
+                        : error.getMessage();
+                result.error("Không kết nối được " + serviceName(c) + " tại "
+                        + url.host() + ":" + port + ". " + detail
+                        + " Nếu điện thoại đang cắm USB, chạy `adb reverse tcp:" + port + " tcp:"
+                        + port + "` trên máy tính rồi thử lại.");
             }
         });
+    }
+    private String serviceName(Call<?> call) {
+        return call.request().url().encodedPath().startsWith("/api/habits")
+                ? "Productivity Service" : "Task Service";
+    }
+    private boolean causedBy(Throwable error, Class<? extends Throwable> type) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause())
+            if (type.isInstance(cause)) return true;
+        return false;
     }
     public void close(){closed=true;for(Call<?> c:calls)c.cancel();calls.clear();}
 }
