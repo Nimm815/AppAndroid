@@ -17,7 +17,7 @@ public class DailyHistory {
     }
     private final SharedPreferences preferences;
     public DailyHistory(Context context) {
-        preferences = context.getSharedPreferences("daily_activity_history", Context.MODE_PRIVATE);
+        preferences = context.getSharedPreferences(vn.edu.taskmanager.auth.Session.storage(context,"daily_activity_history"), Context.MODE_PRIVATE);
     }
     public List<Row> rows() {
         List<Row> rows = new ArrayList<>();

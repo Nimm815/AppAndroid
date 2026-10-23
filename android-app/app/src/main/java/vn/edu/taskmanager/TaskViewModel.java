@@ -48,6 +48,7 @@ public class TaskViewModel extends AndroidViewModel {
             try {
                 LegacyTaskListImporter.importOnce(application, database);
                 listsReady.postValue(true);
+                vn.edu.taskmanager.sync.WorkspaceSync.changed(getApplication());
             } catch (RuntimeException error) {
                 android.util.Log.e("TaskViewModel", "Không nhập được danh sách cũ", error);
                 writeError.postValue(true);
@@ -135,6 +136,7 @@ public class TaskViewModel extends AndroidViewModel {
             try {
                 LegacyTaskListImporter.importOnce(getApplication(), database);
                 database.runInTransaction(operation);
+                vn.edu.taskmanager.sync.WorkspaceSync.changed(getApplication());
                 listsReady.postValue(true);
                 listResult.postValue(new ListResult(request, id, true));
             } catch (RuntimeException error) {
@@ -154,7 +156,7 @@ public class TaskViewModel extends AndroidViewModel {
 
     private void write(Runnable operation) {
         executor.execute(() -> {
-            try { syncHistory(); operation.run(); syncHistory(); historyChanged.postValue(System.currentTimeMillis()); }
+            try { syncHistory(); operation.run(); vn.edu.taskmanager.sync.WorkspaceSync.changed(getApplication()); syncHistory(); historyChanged.postValue(System.currentTimeMillis()); }
             catch (RuntimeException error) {
                 android.util.Log.e("TaskViewModel", "Không thể lưu công việc", error);
                 writeError.postValue(true);

@@ -32,7 +32,10 @@
     <string name="next_period">Kỳ sau</string>
     <string name="today">Hôm nay</string>
     <string name="local_account">Đang dùng trên thiết bị</string>
-    <string name="local_account_detail">Dữ liệu được lưu cục bộ. Chưa kết nối tài khoản máy chủ.</string>
+    <string name="local_account_detail">Công việc và danh sách được lưu tự động khi có kết nối.</string>
+    <string name="sync_not_started">Chưa có lần đồng bộ MySQL nào</string>
+    <string name="sync_not_configured">Bản ứng dụng chưa cấu hình địa chỉ API</string>
+    <string name="sync_ready">Đang chờ thay đổi để đồng bộ lên MySQL</string>
     <string name="search_everything">Tìm công việc, thói quen và ghi chú</string>
     <string name="help">Hướng dẫn sử dụng</string>
     <string name="app_settings">Cài đặt ứng dụng</string>
