@@ -10,7 +10,6 @@ import android.text.TextWatcher;
 import androidx.appcompat.app.AlertDialog;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import vn.edu.taskmanager.data.LocalStore;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
@@ -30,6 +29,8 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     private int filter = 0;
     private String query = "";
     private String listId = "";
+    private int priorityFilter;
+    private int dateFilter = TaskFilters.DATE_CURRENT_VIEW;
     private WorkspaceController workspace;
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener syncListener = (preferences, key) -> {
         if ("status".equals(key)) runOnUiThread(() -> {
@@ -84,6 +85,8 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
             query = state.getString("query", "");
             listId = state.getString("listId", "");
             allDates = state.getBoolean("allDates", false);
+            priorityFilter = state.getInt("priorityFilter", 0);
+            dateFilter = state.getInt("dateFilter", TaskFilters.DATE_CURRENT_VIEW);
         }
         workspace = new WorkspaceController(this, state);
         if (getIntent() != null && getIntent().hasExtra("open_tab")) {
@@ -134,16 +137,22 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
         List<Task> visible = new ArrayList<>();
         List<Task> overdue = new ArrayList<>(), unscheduled = new ArrayList<>();
         String date = workspace.selectedDate(), today = LocalStore.today();
-        String keyword = query.trim().toLowerCase(Locale.ROOT);
         TaskListWithTasks collection = findTaskList(listId);
         int done = 0;
         List<Task> source = listId.isEmpty() ? allTasks : collection == null ? new ArrayList<>() : new ArrayList<>(collection.tasks);
         source = new ArrayList<>(source);
         java.util.Collections.sort(source, (a, b) -> a.completed != b.completed ? (a.completed ? 1 : -1) : Long.compare(b.id, a.id));
         for (Task task : source) {
-            if ((filter == 1 && task.completed) || (filter == 2 && !task.completed)) continue;
-            if (!task.title.toLowerCase(Locale.ROOT).contains(keyword)) continue;
-            if (!allDates && !TaskSchedule.onDate(task, date)) {
+            if (!TaskFilters.matches(task, query, filter, priorityFilter)) continue;
+            if (dateFilter == TaskFilters.DATE_OVERDUE) {
+                if (TaskFilters.isOverdue(task, today)) visible.add(task);
+                continue;
+            }
+            if (dateFilter == TaskFilters.DATE_UNSCHEDULED) {
+                if (TaskFilters.isUnscheduled(task)) visible.add(task);
+                continue;
+            }
+            if (dateFilter != TaskFilters.DATE_ALL && !allDates && !TaskSchedule.onDate(task, date)) {
                 if (date.equals(today)) {
                     if (TaskSchedule.overdue(task, today)) overdue.add(task);
                     else if (task.scheduledDate.isEmpty()) unscheduled.add(task);
@@ -169,10 +178,15 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
                 : getString(R.string.list_completion, collection.completedCount(), collection.tasks.size()));
         findViewById(R.id.editCurrentList).setVisibility(collection != null && !workspace.isHabitsOnly() ? View.VISIBLE : View.GONE);
         String label = filter == 1 ? "Chưa hoàn thành" : filter == 2 ? "Đã hoàn thành" : "Tất cả";
+        if (dateFilter == TaskFilters.DATE_OVERDUE) label = "Công việc quá hạn";
+        else if (dateFilter == TaskFilters.DATE_UNSCHEDULED) label = "Chưa lên lịch";
+        else if (priorityFilter != 0) label += " · " + TaskPriority.label(priorityFilter);
         if (collection != null) label = collection.list.title;
         if (!workspace.isHabitsOnly()) {
             ((TextView) findViewById(R.id.listHeading)).setText(!allDates ? "Công việc ngày " + displayDate(date)
-                    : collection != null ? collection.list.title : !listId.isEmpty() ? getString(R.string.task_lists) : filter == 0 ? "Tất cả công việc" : label);
+                    : collection != null ? collection.list.title : !listId.isEmpty() ? getString(R.string.task_lists)
+                    : dateFilter == TaskFilters.DATE_ALL && filter == 0 && priorityFilter == 0
+                    ? "Tất cả công việc" : label);
             ((TextView) findViewById(R.id.taskCount)).setText(String.valueOf(visible.size() + overdue.size() + unscheduled.size()));
         }
     }
@@ -186,6 +200,7 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     public void showSelectedDay() {
         workspace.showDailyOverview();
         allDates = false; filter = 0; listId = ""; query = "";
+        dateFilter = TaskFilters.DATE_CURRENT_VIEW;
         ((EditText) findViewById(R.id.searchTasks)).setText(""); renderTasks();
     }
 
@@ -196,6 +211,8 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
         state.putString("query", query);
         state.putString("listId", listId);
         state.putBoolean("allDates", allDates);
+        state.putInt("priorityFilter", priorityFilter);
+        state.putInt("dateFilter", dateFilter);
         workspace.saveState(state);
         super.onSaveInstanceState(state);
     }
@@ -253,7 +270,26 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     public void useTaskFilter(int status, String keyword, String collection) {
         allDates = true;
         filter = status; query = keyword; listId = collection;
+        dateFilter = TaskFilters.DATE_ALL;
         ((EditText) findViewById(R.id.searchTasks)).setText(keyword);
+        renderTasks();
+    }
+    public int getPriorityFilter() { return priorityFilter; }
+    public void setPriorityFilter(int value) {
+        priorityFilter = value;
+        renderTasks();
+    }
+    public int getDateFilter() { return dateFilter; }
+    public void setDateFilter(int value) {
+        dateFilter = value;
+        allDates = value != TaskFilters.DATE_CURRENT_VIEW;
+        renderTasks();
+    }
+    public void setTaskStatusFilter(int value) {
+        filter = value;
+        listId = "";
+        allDates = true;
+        dateFilter = TaskFilters.DATE_ALL;
         renderTasks();
     }
     @Override public void onBackPressed() {

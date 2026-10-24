@@ -1758,12 +1758,22 @@ public class WorkspaceController {
                 if (which == 3) showAllHabits();
                 else {
                     habitsOnly = false; collapsed = false;
-                    activity.useTaskFilter(which, "", "");
+                    activity.setTaskStatusFilter(which == 0 ? 0 : which);
                     selectTab(0);
                 }
                 dialog.dismiss();
             });
         }
+        Button dateFilterButton = view.findViewById(R.id.filterTaskDate);
+        String[] dateFilterLabels = {"theo màn hình", "tất cả ngày", "quá hạn", "chưa lên lịch"};
+        int dateFilter = Math.max(0, Math.min(activity.getDateFilter(), dateFilterLabels.length - 1));
+        dateFilterButton.setText("Ngày thực hiện: " + dateFilterLabels[dateFilter]);
+        dateFilterButton.setOnClickListener(v -> showTaskDateFilterDialog(dateFilterButton));
+        Button priorityFilterButton = view.findViewById(R.id.filterTaskPriority);
+        int currentPriorityFilter = activity.getPriorityFilter();
+        priorityFilterButton.setText("Mức ưu tiên: " + (currentPriorityFilter == 0
+                ? "tất cả" : TaskPriority.label(currentPriorityFilter)));
+        priorityFilterButton.setOnClickListener(v -> showTaskPriorityFilterDialog(priorityFilterButton));
         LinearLayout rows = view.findViewById(R.id.customLists);
         TaskListUi.bind(activity, rows, dialog);
         for (LocalStore.Entry entry : store.entries(null)) {
@@ -1818,6 +1828,29 @@ public class WorkspaceController {
         collapsed = false;
         activity.useTaskFilter(0, "", "");
         selectTab(0);
+    }
+
+    private void showTaskDateFilterDialog(Button filterButton) {
+        String[] options = {"Theo ngày đang xem", "Tất cả ngày", "Quá hạn", "Chưa lên lịch"};
+        new AlertDialog.Builder(activity).setTitle("Lọc theo ngày thực hiện")
+                .setSingleChoiceItems(options, activity.getDateFilter(), (dialog, selectedFilter) -> {
+                    activity.setDateFilter(selectedFilter);
+                    filterButton.setText("Ngày thực hiện: " + new String[]{
+                            "theo màn hình", "tất cả ngày", "quá hạn", "chưa lên lịch"
+                    }[selectedFilter]);
+                    dialog.dismiss();
+                }).setNegativeButton(R.string.cancel, null).show();
+    }
+
+    private void showTaskPriorityFilterDialog(Button filterButton) {
+        String[] options = {"Tất cả mức ưu tiên", "Làm ngay", "Lên lịch", "Ủy quyền", "Loại bỏ"};
+        new AlertDialog.Builder(activity).setTitle("Lọc theo mức ưu tiên")
+                .setSingleChoiceItems(options, activity.getPriorityFilter(), (dialog, selectedFilter) -> {
+                    activity.setPriorityFilter(selectedFilter);
+                    filterButton.setText("Mức ưu tiên: " + (selectedFilter == 0
+                            ? "tất cả" : TaskPriority.label(selectedFilter)));
+                    dialog.dismiss();
+                }).setNegativeButton(R.string.cancel, null).show();
     }
 
     private void manageCollections() {
@@ -1941,13 +1974,14 @@ public class WorkspaceController {
         LinearLayout rows = new LinearLayout(activity); rows.setOrientation(LinearLayout.VERTICAL); scroll.addView(rows);
         AlertDialog dialog = new AlertDialog.Builder(activity).setTitle(R.string.search_everything).setView(layout).setNegativeButton(R.string.close, null).create();
         search.addTextChangedListener(watcher(value -> {
-            rows.removeAllViews(); String keyword = value.trim().toLowerCase(Locale.ROOT);
-            if (keyword.isEmpty()) return;
-            for (Task task : tasks) if (task.title.toLowerCase(Locale.ROOT).contains(keyword))
+            rows.removeAllViews();
+            if (value.trim().isEmpty()) return;
+            for (Task task : tasks) if (vn.edu.taskmanager.TaskFilters.matchesSearch(task, value))
                 action(rows, "Công việc · " + task.title, () -> { dialog.dismiss(); activity.onEdit(task); });
             for (LocalStore.Entry entry : store.entries(null)) {
                 if (!Arrays.asList("habit", "note", "event").contains(entry.type)) continue;
-                if ((entry.title + " " + entry.body).toLowerCase(Locale.ROOT).contains(keyword))
+                if (vn.edu.taskmanager.util.VietnameseUtils.containsIgnoreAccents(
+                        entry.title + " " + entry.body, value))
                     action(rows, ("habit".equals(entry.type) ? "Thói quen" : "note".equals(entry.type) ? "Ghi chú" : "Sự kiện")
                             + " · " + entry.title, () -> { dialog.dismiss(); entryActions(entry); });
             }

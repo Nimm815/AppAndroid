@@ -5,6 +5,8 @@
 - Menu ☰ → Quản lý danh sách / bộ lọc → Tạo danh sách: nhập tên, chọn công việc đã có hoặc để danh sách trống.
 - Chạm danh sách để mở. Nút + trong danh sách tạo công việc mới và tự đưa vào danh sách đó.
 - Chạm Sửa danh sách hoặc nút ⋯ của danh sách để đổi tên, chọn/bỏ chọn thành viên hoặc xóa danh sách.
+- Ô tìm kiếm trong menu lọc tức thời theo tên hoặc ghi chú công việc, không phân biệt chữ hoa/thường và dấu tiếng Việt. Có thể kết hợp từ khóa với trạng thái, ngày thực hiện và mức ưu tiên.
+- Bộ lọc công việc gồm Tất cả / Chưa hoàn thành / Đã hoàn thành; Ngày thực hiện (ngày đang xem, tất cả ngày, quá hạn, chưa lên lịch); và 4 mức ưu tiên. Các bộ lọc ngày/mức ưu tiên có thể dùng đồng thời với tìm kiếm và bộ lọc trạng thái.
 - Xóa danh sách/bỏ chọn thành viên không xóa công việc. Xóa công việc có xác nhận sẽ xóa việc khỏi mọi danh sách.
 - Số việc hoàn thành cập nhật tự động; mỗi công việc chỉ thuộc một danh sách riêng. Chọn công việc ở danh sách khác rồi lưu sẽ chuyển công việc sang danh sách đang sửa. Công việc vẫn hiện trong các chế độ tổng hợp như Tất cả công việc/Hôm nay.
 - Migration 5→6 thêm ràng buộc duy nhất theo công việc. Nếu dữ liệu bản cũ có liên kết trùng, giữ danh sách tạo mới nhất (cùng thời điểm thì chọn ID giảm dần); giữ nguyên công việc và tất cả danh sách. Không suy đoán lần chuyển gần nhất vì bản cũ chưa lưu thông tin này.
