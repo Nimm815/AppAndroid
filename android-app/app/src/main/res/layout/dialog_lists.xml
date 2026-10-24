@@ -12,6 +12,8 @@
             <TextView style="@style/DrawerHeading" android:text="Bộ lọc công việc  ﹀" />
             <Button android:id="@+id/listPending" style="@style/DrawerRow" android:text="@string/list_pending" app:drawableStartCompat="@drawable/badge_today" />
             <Button android:id="@+id/listCompleted" style="@style/DrawerRow" android:text="@string/list_completed" app:drawableStartCompat="@drawable/badge_tasks" />
+            <Button android:id="@+id/filterTaskDate" style="@style/DrawerRow" android:text="Ngày thực hiện: theo màn hình" app:drawableStartCompat="@drawable/badge_today" />
+            <Button android:id="@+id/filterTaskPriority" style="@style/DrawerRow" android:text="Mức ưu tiên: tất cả" app:drawableStartCompat="@drawable/badge_tasks" />
             <TextView style="@style/DrawerHeading" android:text="Hiển thị thói quen  ﹀" />
             <Button android:id="@+id/habitsCompact" style="@style/DrawerRow" android:text="Thu gọn" app:drawableStartCompat="@drawable/badge_habits" />
             <Button android:id="@+id/habitsWeek" style="@style/DrawerRow" android:text="Hàng tuần" app:drawableStartCompat="@drawable/badge_week" />
@@ -20,6 +22,6 @@
             <LinearLayout android:id="@+id/customLists" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
         </LinearLayout>
     </ScrollView>
-    <EditText android:id="@+id/drawerSearch" android:layout_width="match_parent" android:layout_height="56dp" android:background="@drawable/box_empty" android:padding="12dp" android:hint="@string/search_tasks_habits" android:textSize="16sp" android:singleLine="true" android:inputType="text" android:layout_marginBottom="8dp" />
+    <EditText android:id="@+id/drawerSearch" android:layout_width="match_parent" android:layout_height="56dp" android:background="@drawable/box_empty" android:padding="12dp" android:hint="@string/search_tasks_habits" android:textSize="16sp" android:singleLine="true" android:inputType="text" android:imeOptions="actionSearch" android:layout_marginBottom="8dp" />
     <Button android:id="@+id/manageCollections" style="@style/BlackButton" android:layout_width="match_parent" android:layout_height="60dp" android:text="@string/manage_lists" />
 </LinearLayout>
