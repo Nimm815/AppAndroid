@@ -453,9 +453,6 @@ public class WorkspaceController {
         click(R.id.settingsAccountLogout, this::confirmLogout);
         click(R.id.settingsAccountDelete, this::confirmDeleteAccount);
         click(R.id.settingsAccountChangePassword, this::changePassword);
-                .setMessage(activity.getString(R.string.local_account_detail) + "\n\n"
-                        + vn.edu.taskmanager.sync.WorkspaceSync.state(activity).getString("status", "Chưa kết nối MySQL"))
-                .setPositiveButton(R.string.close, null).show());
         click(R.id.collapseTasks, () -> { collapsed = !collapsed; refresh(); });
 
         click(R.id.currentDate, () -> new DatePickerDialog(activity, (picker, year, month, date) -> {
