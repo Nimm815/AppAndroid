@@ -25,6 +25,9 @@ import androidx.core.content.ContextCompat;
 import vn.edu.taskmanager.data.LocalStore;
 import vn.edu.taskmanager.data.Reminder;
 import vn.edu.taskmanager.data.Task;
+import vn.edu.taskmanager.AuthActivity;
+import vn.edu.taskmanager.auth.AccountSession;
+import vn.edu.taskmanager.auth.AuthApi;
 import vn.edu.taskmanager.reminder.ReminderScheduler;
 import vn.edu.taskmanager.util.VietnameseUtils;
 
@@ -63,12 +66,18 @@ public class WorkspaceController {
     private boolean habitsOnly;
     private boolean collapsed;
     private List<Task> tasks = new ArrayList<>();
+    private final vn.edu.taskmanager.cloud.CloudRepository habitCloud;
+    private boolean habitFetchInProgress;
+    private long habitMutationVersion;
 
     public WorkspaceController(MainActivity activity, Bundle state) {
         this.activity = activity;
         store = new LocalStore(activity);
         history = new vn.edu.taskmanager.data.DailyHistory(activity);
         preferences = activity.getSharedPreferences("workspace_settings", 0);
+        habitCloud = vn.edu.taskmanager.BuildConfig.HABIT_URL.isEmpty() ? null
+                : new vn.edu.taskmanager.cloud.CloudRepository(vn.edu.taskmanager.BuildConfig.TASK_URL,
+                vn.edu.taskmanager.BuildConfig.HABIT_URL);
 
         if (state != null) {
             tab = state.getInt("tab", 0);
@@ -92,6 +101,137 @@ public class WorkspaceController {
         initSettingsViews();
 
         selectTab(tab);
+    }
+
+    public void refreshHabitsFromServer() {
+        if (habitCloud == null || habitFetchInProgress) return;
+        habitFetchInProgress = true;
+        long requestedMutationVersion = habitMutationVersion;
+        habitCloud.request(habitCloud.habits.habits(),
+                new vn.edu.taskmanager.cloud.CloudRepository.Result<List<vn.edu.taskmanager.cloud.CloudModels.Habit>>() {
+            @Override public void success(List<vn.edu.taskmanager.cloud.CloudModels.Habit> values) {
+                habitFetchInProgress = false;
+                if (requestedMutationVersion != habitMutationVersion) {
+                    refreshHabitsFromServer();
+                    return;
+                }
+                Set<String> retained = new HashSet<>();
+                for (vn.edu.taskmanager.cloud.CloudModels.Habit value : values) {
+                    retained.add(String.valueOf(value.id));
+                    cacheRemoteHabit(value);
+                }
+                for (LocalStore.Entry entry : store.entries("habit")) {
+                    if ("server_api".equals(entry.sourceType) && !retained.contains(entry.sourceId)) {
+                        cancelHabitReminder(entry.sourceId);
+                        store.delete(entry.id);
+                    }
+                }
+                refresh();
+            }
+            @Override public void error(String message) {
+                habitFetchInProgress = false;
+                Toast.makeText(activity, "Không tải được thói quen từ máy chủ: " + message,
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    public void cacheRemoteHabit(vn.edu.taskmanager.cloud.CloudModels.Habit remote) {
+        String id = "api-habit-" + remote.id;
+        LocalStore.Entry entry = store.find(id);
+        if (entry == null) entry = new LocalStore.Entry();
+        entry.id = id;
+        entry.type = "habit";
+        entry.sourceType = "server_api";
+        entry.sourceId = String.valueOf(remote.id);
+        entry.title = remote.name;
+        entry.body = remote.description == null ? "" : remote.description;
+        entry.icon = remote.icon == null || remote.icon.isEmpty() ? "🌱" : remote.icon;
+        entry.color = remote.color == null || remote.color.isEmpty() ? "#5B6FDE" : remote.color;
+        entry.created = remote.startDate == null ? LocalStore.today() : remote.startDate;
+        entry.date = entry.created;
+        entry.weekdays = remote.weekdays;
+        entry.scheduleConfigured = remote.scheduleConfigured;
+        entry.targetCount = Math.max(1, remote.targetCount);
+        entry.targetUnit = remote.targetUnit == null || remote.targetUnit.isEmpty() ? "lần" : remote.targetUnit;
+        entry.currentStreak = remote.currentStreak;
+        entry.longestStreak = remote.longestStreak;
+        entry.completedDays = remote.completedDays;
+        entry.scheduledDays = remote.scheduledDays;
+        entry.completionRate = remote.completionRate;
+        entry.reminderEnabled = remote.reminderEnabled;
+        entry.reminderTime = remote.reminderTime == null ? "" : remote.reminderTime.substring(0, 5);
+        int todayProgress = Math.min(100, remote.actualCountToday * 100 / entry.targetCount);
+        entry.dailyProgress.put(LocalStore.today(), todayProgress);
+        entry.days.remove(LocalStore.today());
+        if (remote.completedToday) entry.days.add(LocalStore.today());
+        store.save(entry);
+        syncHabitReminder(remote);
+    }
+
+    private void syncHabitReminder(vn.edu.taskmanager.cloud.CloudModels.Habit habit) {
+        LocalStore store = new LocalStore(activity);
+        String reminderId = "habit-" + habit.id;
+        Reminder old = store.findReminder(reminderId);
+        if (!habit.reminderEnabled || habit.reminderTime == null) {
+            if (old != null) {
+                ReminderScheduler.cancel(activity, old);
+                store.deleteReminder(reminderId);
+            }
+            return;
+        }
+        Reminder reminder = old == null ? new Reminder() : old;
+        reminder.id = reminderId;
+        reminder.title = habit.name;
+        reminder.targetType = Reminder.TARGET_HABIT;
+        reminder.targetId = String.valueOf(habit.id);
+        reminder.targetName = habit.name;
+        reminder.time = habit.reminderTime.substring(0, 5);
+        reminder.repeatType = habit.weekdays == 127 ? Reminder.REPEAT_DAILY : Reminder.REPEAT_WEEKDAYS;
+        reminder.isEnabled = true;
+        reminder.isFromEvent = false;
+        reminder.daysOfWeek = new ArrayList<>();
+        for (int index = 0; index < 7; index++) {
+            if ((habit.weekdays & (1 << index)) == 0) continue;
+            reminder.daysOfWeek.add(index == 6 ? Calendar.SUNDAY : index + Calendar.MONDAY);
+        }
+        ReminderScheduler.schedule(activity, reminder);
+        if (!ReminderScheduler.hasNotificationPermission(activity)) {
+            new AlertDialog.Builder(activity).setTitle("Cần cấp quyền thông báo")
+                    .setMessage("Đã lưu giờ nhắc. Hãy bật quyền thông báo để nhận nhắc việc.")
+                    .setPositiveButton("Cài đặt", (dialog, which) -> {
+                        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        intent.setData(Uri.fromParts("package", activity.getPackageName(), null));
+                        activity.startActivity(intent);
+                    }).setNegativeButton("Để sau", null).show();
+        }
+    }
+
+    private void cancelHabitReminder(String habitId) {
+        Reminder reminder = store.findReminder("habit-" + habitId);
+        if (reminder != null) {
+            ReminderScheduler.cancel(activity, reminder);
+            store.deleteReminder(reminder.id);
+        }
+    }
+
+    public void saveHabitToServer(Integer id, Map<String, Object> body,
+            vn.edu.taskmanager.cloud.CloudRepository.Result<vn.edu.taskmanager.cloud.CloudModels.Habit> callback) {
+        if (habitCloud == null) {
+            callback.error("Bản ứng dụng chưa cấu hình Productivity API");
+        } else if (id == null) habitCloud.request(habitCloud.habits.create(body), callback);
+        else habitCloud.request(habitCloud.habits.update(id, body), callback);
+    }
+
+    public void onRemoteHabitSaved(vn.edu.taskmanager.cloud.CloudModels.Habit habit) {
+        habitMutationVersion++;
+        cacheRemoteHabit(habit);
+        activity.showSelectedDay();
+        selectTab(0);
+    }
+
+    public void close() {
+        if (habitCloud != null) habitCloud.close();
     }
 
     private void initNavigation() {
@@ -281,6 +421,8 @@ public class WorkspaceController {
         click(R.id.openReport, this::report);
         click(R.id.settingsTimer, this::timer);
         click(R.id.settingsReport, this::report);
+        click(R.id.settingsProfile, () -> activity.startActivity(
+                new Intent(activity, PersonalProfileActivity.class)));
         click(R.id.manageLists, this::manageCollections);
         click(R.id.settingsSearch, this::globalSearch);
         click(R.id.replayOnboarding, () -> activity.startActivity(
@@ -306,6 +448,11 @@ public class WorkspaceController {
 
         click(R.id.settingsMenu, this::lists);
         click(R.id.settingsStar, () -> new AlertDialog.Builder(activity).setTitle(R.string.app_name)
+                .setMessage(R.string.local_account_detail).setPositiveButton(R.string.close, null).show());
+        click(R.id.settingsAccountLogin, () -> activity.startActivity(new android.content.Intent(activity, AuthActivity.class)));
+        click(R.id.settingsAccountLogout, this::confirmLogout);
+        click(R.id.settingsAccountDelete, this::confirmDeleteAccount);
+        click(R.id.settingsAccountChangePassword, this::changePassword);
                 .setMessage(activity.getString(R.string.local_account_detail) + "\n\n"
                         + vn.edu.taskmanager.sync.WorkspaceSync.state(activity).getString("status", "Chưa kết nối MySQL"))
                 .setPositiveButton(R.string.close, null).show());
@@ -397,6 +544,7 @@ public class WorkspaceController {
     }
 
     public void refresh() {
+        refreshAccountUi();
         history.sync(tasks, store.entries("habit"), LocalStore.today());
         week(activity.findViewById(R.id.taskWeek), selected, () -> { activity.showSelectedDay(); refresh(); });
         refreshDate();
@@ -412,6 +560,172 @@ public class WorkspaceController {
         ((Button) activity.findViewById(R.id.themeChoice)).setText(new String[]{"Sáng  ﹀", "Tối  ﹀", "Hệ thống  ﹀"}[preferences.getInt("theme", 0)]);
         activity.renderTaskDates();
     }
+    private void refreshAccountUi() {
+        TextView status = activity.findViewById(R.id.accountStatus);
+        View login = activity.findViewById(R.id.settingsAccountLogin);
+        View logout = activity.findViewById(R.id.settingsAccountLogout);
+        View delete = activity.findViewById(R.id.settingsAccountDelete);
+        View changePassword =
+                activity.findViewById(R.id.settingsAccountChangePassword);
+
+        boolean loggedIn = AccountSession.isLoggedIn(activity);
+        status.setText(loggedIn
+                ? AccountSession.fullName(activity) + "\n" + AccountSession.email(activity)
+                : "Đang dùng trên thiết bị · chưa đăng nhập");
+        login.setVisibility(loggedIn ? View.GONE : View.VISIBLE);
+        logout.setVisibility(loggedIn ? View.VISIBLE : View.GONE);
+        delete.setVisibility(loggedIn ? View.VISIBLE : View.GONE);
+        changePassword.setVisibility(
+                loggedIn ? View.VISIBLE : View.GONE
+        );
+    }
+
+    private void confirmLogout() {
+        new AlertDialog.Builder(activity).setTitle("Đăng xuất")
+                .setMessage("Bạn có chắc muốn đăng xuất khỏi TaskMind trên thiết bị này?")
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton("Đăng xuất", (dialog, which) -> {
+                    AccountSession.clear(activity);
+                    refreshAccountUi();
+                    Toast.makeText(activity, "Đã đăng xuất", Toast.LENGTH_SHORT).show();
+                }).show();
+    }
+
+    private void changePassword() {
+        LinearLayout layout = new LinearLayout(activity);
+        layout.setOrientation(LinearLayout.VERTICAL);
+
+        int padding = (int) (20 * activity.getResources()
+                .getDisplayMetrics().density);
+        layout.setPadding(padding, padding / 2, padding, 0);
+
+        EditText currentPassword = new EditText(activity);
+        currentPassword.setSingleLine(true);
+        currentPassword.setHint("Mật khẩu hiện tại");
+        currentPassword.setInputType(
+                android.text.InputType.TYPE_CLASS_TEXT
+                        | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        );
+
+        EditText newPassword = new EditText(activity);
+        newPassword.setSingleLine(true);
+        newPassword.setHint("Mật khẩu mới (ít nhất 8 ký tự)");
+        newPassword.setInputType(
+                android.text.InputType.TYPE_CLASS_TEXT
+                        | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        );
+
+        EditText confirmPassword = new EditText(activity);
+        confirmPassword.setSingleLine(true);
+        confirmPassword.setHint("Xác nhận mật khẩu mới");
+        confirmPassword.setInputType(
+                android.text.InputType.TYPE_CLASS_TEXT
+                        | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        );
+
+        layout.addView(currentPassword);
+        layout.addView(newPassword);
+        layout.addView(confirmPassword);
+
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle("Đổi mật khẩu")
+                .setView(layout)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton("Cập nhật", null)
+                .create();
+
+        dialog.setOnShowListener(ignored ->
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setOnClickListener(v -> {
+                            String current = currentPassword.getText()
+                                    .toString();
+                            String next = newPassword.getText().toString();
+                            String confirm = confirmPassword.getText()
+                                    .toString();
+
+                            if (current.isEmpty() || next.isEmpty()
+                                    || confirm.isEmpty()) {
+                                Toast.makeText(activity,
+                                        "Vui lòng nhập đầy đủ thông tin",
+                                        Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+
+                            if (next.length() < 8 || next.length() > 72) {
+                                newPassword.setError(
+                                        "Mật khẩu phải có từ 8 đến 72 ký tự");
+                                return;
+                            }
+
+                            if (!next.equals(confirm)) {
+                                confirmPassword.setError(
+                                        "Mật khẩu xác nhận không khớp");
+                                return;
+                            }
+
+                            if (current.equals(next)) {
+                                newPassword.setError(
+                                        "Mật khẩu mới phải khác mật khẩu hiện tại");
+                                return;
+                            }
+
+                            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                                    .setEnabled(false);
+
+                            AuthApi.changePassword(
+                                    current,
+                                    next,
+                                    AccountSession.token(activity),
+                                    (ok, data, message) -> {
+                                        if (activity.isFinishing()
+                                                || activity.isDestroyed()) {
+                                            return;
+                                        }
+
+                                        dialog.getButton(
+                                                        AlertDialog.BUTTON_POSITIVE)
+                                                .setEnabled(true);
+
+                                        if (ok) {
+                                            dialog.dismiss();
+                                            Toast.makeText(activity,
+                                                    "Đổi mật khẩu thành công",
+                                                    Toast.LENGTH_LONG).show();
+                                        } else {
+                                            Toast.makeText(activity,
+                                                    message,
+                                                    Toast.LENGTH_LONG).show();
+                                        }
+                                    });
+                        }));
+
+        dialog.show();
+    }
+
+
+    private void confirmDeleteAccount() {
+        EditText password = new EditText(activity);
+        password.setSingleLine(true);
+        password.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        password.setHint("Nhập mật khẩu để xác nhận");
+        int padding = (int) (20 * activity.getResources().getDisplayMetrics().density);
+        password.setPadding(padding, padding, padding, padding);
+        new AlertDialog.Builder(activity).setTitle("Xóa tài khoản")
+                .setMessage("Tài khoản sẽ bị vô hiệu hóa và thông tin nhận dạng sẽ được ẩn. Thao tác này không thể hoàn tác.")
+                .setView(password).setNegativeButton(R.string.cancel, null)
+                .setPositiveButton("Xóa tài khoản", (dialog, which) -> {
+                    String pass = password.getText().toString();
+                    if (pass.isEmpty()) { Toast.makeText(activity, "Vui lòng nhập mật khẩu", Toast.LENGTH_SHORT).show(); return; }
+                    activity.findViewById(R.id.settingsAccountDelete).setEnabled(false);
+                    AuthApi.deleteAccount(pass, AccountSession.token(activity), (ok, data, message) -> {
+                        activity.findViewById(R.id.settingsAccountDelete).setEnabled(true);
+                        if (ok) {
+                            AccountSession.clear(activity); refreshAccountUi();
+                            Toast.makeText(activity, "Tài khoản đã được xóa", Toast.LENGTH_LONG).show();
+                        } else Toast.makeText(activity, message, Toast.LENGTH_LONG).show();
+                    });
+                }).show();
+    }
 
     private void refreshDate() {
         ((TextView) activity.findViewById(R.id.currentDate)).setText(
@@ -425,7 +739,7 @@ public class WorkspaceController {
         new AlertDialog.Builder(activity).setTitle("Thêm mới")
                 .setItems(new String[]{"Công việc", "Thói quen hằng ngày", "Sự kiện lịch", "Nhắc việc mới"}, (dialog, which) -> {
                     if (which == 0) activity.createTask();
-                    else if (which == 1) editor("habit", null, day(selected));
+                    else if (which == 1) showHabitEditor(null);
                     else if (which == 2) {
                         EventEditorDialog.create(null, day(selected)).show(activity.getSupportFragmentManager(), "event_editor");
                     } else {
@@ -448,36 +762,55 @@ public class WorkspaceController {
         String keyword = ((EditText) activity.findViewById(R.id.searchTasks)).getText().toString().trim().toLowerCase(Locale.ROOT);
         int visible = 0;
         for (LocalStore.Entry habit : habits) {
-            if (date.compareTo(habit.created) < 0) continue;
+            if (!habitsOnly && (date.compareTo(habit.created) < 0 || !isScheduledDay(habit, date))) continue;
             if (!habit.title.toLowerCase(Locale.ROOT).contains(keyword)) continue;
             visible++;
-            if (habit.days.contains(date)) done++;
+            boolean completed = habit.days.contains(date) || habit.progressOn(date) >= 100;
+            if (completed) done++;
             LinearLayout card = card(rows);
             card.setOrientation(LinearLayout.HORIZONTAL);
             card.setGravity(Gravity.CENTER_VERTICAL);
             card.setPadding(dp(8), dp(8), dp(8), dp(8));
-            ImageView icon = new ImageView(activity);
-            icon.setImageResource(R.drawable.ic_leaf);
+            TextView icon = new TextView(activity);
+            icon.setText(habit.icon);
+            icon.setTextSize(22);
+            icon.setGravity(Gravity.CENTER);
             icon.setBackgroundResource(R.drawable.control_purple);
-            icon.setPadding(dp(6), dp(6), dp(6), dp(6));
-            card.addView(icon, new LinearLayout.LayoutParams(dp(28), dp(28)));
-            TextView title = new TextView(activity);
-            title.setText(habit.title + " · " + (habit.progressOn(date)) + "%"); title.setTextSize(16);
+            try { icon.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor(habit.color))); }
+            catch (IllegalArgumentException ignored) { }
+            card.addView(icon, new LinearLayout.LayoutParams(dp(42), dp(42)));
+            LinearLayout details = new LinearLayout(activity);
+            details.setOrientation(LinearLayout.VERTICAL);
+            details.setGravity(Gravity.CENTER_VERTICAL);
+            details.setPadding(dp(10), 0, dp(6), 0);
+            card.addView(details, new LinearLayout.LayoutParams(0, dp(56), 1));
+            TextView title = text(details, habit.title, 16);
             title.setTextColor(ContextCompat.getColor(activity, R.color.workspace_text));
-            title.setPadding(dp(8), 0, dp(8), 0);
-            card.addView(title, new LinearLayout.LayoutParams(0, dp(44), 1));
-            title.setGravity(Gravity.CENTER_VERTICAL);
-            card.setOnClickListener(v -> habitActions(habit, date));
+            int progress = habit.progressOn(date);
+            TextView progressLabel = text(details, habit.targetCount > 1
+                    ? progressCount(habit, date) + " / " + habit.targetCount + " " + habit.targetUnit
+                    : progress + "% hoàn thành", 12);
+            progressLabel.setTextColor(ContextCompat.getColor(activity, R.color.workspace_muted));
+            card.setOnClickListener(v -> {
+                if ("server_api".equals(habit.sourceType)) showRemoteHabitDetails(habit.sourceId);
+                else habitActions(habit, date);
+            });
             CheckBox check = new CheckBox(activity);
             check.setButtonDrawable(null);
             check.setBackgroundResource(R.drawable.completion_box);
             check.setContentDescription("Hoàn thành " + habit.title);
-            check.setChecked(habit.days.contains(date));
-            boolean available = date.compareTo(LocalStore.today()) <= 0 && date.compareTo(habit.created) >= 0;
+            check.setChecked(completed);
+            boolean available = date.compareTo(LocalStore.today()) <= 0 && date.compareTo(habit.created) >= 0
+                    && isScheduledDay(habit, date);
             check.setEnabled(available);
             check.setOnCheckedChangeListener((button, checked) -> {
-                history.sync(tasks, store.entries("habit"), LocalStore.today());
-                store.checkHabit(habit, date, checked); history.setHabitResult(habit, date); refresh();
+                if ("server_api".equals(habit.sourceType)) {
+                    int count = checked ? habit.targetCount : 0;
+                    updateRemoteCheck(habit, date, count);
+                } else {
+                    history.sync(tasks, store.entries("habit"), LocalStore.today());
+                    store.checkHabit(habit, date, checked); history.setHabitResult(habit, date); refresh();
+                }
             });
             card.addView(check, new LinearLayout.LayoutParams(dp(44), dp(44)));
         }
@@ -492,6 +825,19 @@ public class WorkspaceController {
 
     public void searchChanged() { refreshHabits(); }
 
+    private int progressCount(LocalStore.Entry habit, String date) {
+        return Math.min(habit.targetCount, (habit.progressOn(date) * habit.targetCount + 50) / 100);
+    }
+
+    private boolean isScheduledDay(LocalStore.Entry habit, String date) {
+        if (!habit.scheduleConfigured) return true;
+        String[] parts = date.split("-");
+        Calendar value = Calendar.getInstance();
+        value.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]));
+        int index = value.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY ? 6 : value.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY;
+        return (habit.weekdays & (1 << index)) != 0;
+    }
+
     public void checkDayChange() {
         String today = LocalStore.today();
         if (!today.equals(lastDay)) {
@@ -502,6 +848,10 @@ public class WorkspaceController {
     }
 
     private void habitActions(LocalStore.Entry habit, String date) {
+        if ("server_api".equals(habit.sourceType)) {
+            showRemoteHabitActions(habit, date);
+            return;
+        }
         new AlertDialog.Builder(activity).setTitle(habit.title)
                 .setItems(new String[]{"Cập nhật mức hoàn thành ngày " + MainActivity.displayDate(date), "Sửa thói quen", "Xóa thói quen"}, (dialog, which) -> {
                     if (which == 1) editor("habit", habit.id, habit.date);
@@ -522,6 +872,327 @@ public class WorkspaceController {
                         })); progress.show();
                     }
                 }).show();
+    }
+
+    private void showHabitEditor(vn.edu.taskmanager.cloud.CloudModels.Habit habit) {
+        if (activity.getSupportFragmentManager().findFragmentByTag("habit_editor") == null) {
+            String startDate = selectedDate();
+            if (startDate.compareTo(LocalStore.today()) > 0) startDate = LocalStore.today();
+            HabitEditorDialog.create(habit, startDate).show(activity.getSupportFragmentManager(), "habit_editor");
+        }
+    }
+
+    private void showRemoteHabitActions(LocalStore.Entry habit, String date) {
+        new AlertDialog.Builder(activity).setTitle(habit.title)
+                .setItems(new String[]{"Xem chi tiết và lịch sử", "Cập nhật tiến độ hôm nay",
+                        "Sửa thói quen", "Xóa thói quen"}, (dialog, which) -> {
+                    int id = Integer.parseInt(habit.sourceId);
+                    if (which == 0) showRemoteHabitDetails(habit.sourceId);
+                    else if (which == 1) editRemoteProgress(habit, date);
+                    else if (which == 2) {
+                        if (habitCloud == null) return;
+                        habitCloud.request(habitCloud.habits.habit(id),
+                                new vn.edu.taskmanager.cloud.CloudRepository.Result<vn.edu.taskmanager.cloud.CloudModels.Habit>() {
+                            @Override public void success(vn.edu.taskmanager.cloud.CloudModels.Habit remote) {
+                                showHabitEditor(remote);
+                            }
+                            @Override public void error(String message) {
+                                Toast.makeText(activity, "Không tải được thói quen: " + message, Toast.LENGTH_LONG).show();
+                            }
+                        });
+                    } else confirmRemoteHabitDelete(habit);
+                }).show();
+    }
+
+    private void editRemoteProgress(LocalStore.Entry habit, String date) {
+        if (date.compareTo(LocalStore.today()) > 0 || !isScheduledDay(habit, date)) {
+            Toast.makeText(activity, "Ngày này không thuộc lịch thực hiện hoặc ở tương lai", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        EditText count = new EditText(activity);
+        count.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        count.setHint("Giá trị từ 0 đến " + habit.targetCount);
+        count.setText(String.valueOf(progressCount(habit, date)));
+        new AlertDialog.Builder(activity).setTitle("Cập nhật tiến độ")
+                .setMessage(habit.title + " · mục tiêu " + habit.targetCount + " " + habit.targetUnit)
+                .setView(count).setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.save, (dialog, which) -> {
+                    int value;
+                    try { value = Integer.parseInt(count.getText().toString().trim()); }
+                    catch (NumberFormatException error) {
+                        Toast.makeText(activity, "Nhập số từ 0 đến " + habit.targetCount, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (value < 0 || value > habit.targetCount) {
+                        Toast.makeText(activity, "Giá trị phải từ 0 đến " + habit.targetCount, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    updateRemoteCheck(habit, date, value);
+                }).show();
+    }
+
+    private void updateRemoteCheck(LocalStore.Entry habit, String date, int actualCount) {
+        if (habitCloud == null) {
+            Toast.makeText(activity, "Chưa cấu hình kết nối Productivity Service", Toast.LENGTH_LONG).show();
+            return;
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("completed", actualCount >= habit.targetCount);
+        body.put("actualCount", actualCount);
+        int id = Integer.parseInt(habit.sourceId);
+        habitCloud.request(habitCloud.habits.check(id, date, body),
+                new vn.edu.taskmanager.cloud.CloudRepository.Result<vn.edu.taskmanager.cloud.CloudModels.Habit>() {
+            @Override public void success(vn.edu.taskmanager.cloud.CloudModels.Habit remote) {
+                habitMutationVersion++;
+                cacheRemoteHabit(remote);
+                LocalStore.Entry cached = store.find(habit.id);
+                if (cached != null) {
+                    int progress = Math.min(100, actualCount * 100 / Math.max(1, cached.targetCount));
+                    cached.dailyProgress.put(date, progress);
+                    cached.days.remove(date);
+                    if (actualCount >= cached.targetCount) cached.days.add(date);
+                    store.save(cached);
+                }
+                history.sync(tasks, store.entries("habit"), LocalStore.today());
+                if (cached != null) history.setHabitResult(cached, date);
+                refresh();
+                Toast.makeText(activity, "Đã cập nhật tiến độ thói quen", Toast.LENGTH_SHORT).show();
+            }
+            @Override public void error(String message) {
+                refresh();
+                Toast.makeText(activity, "Chưa cập nhật được tiến độ: " + message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void confirmRemoteHabitDelete(LocalStore.Entry habit) {
+        new AlertDialog.Builder(activity).setTitle("Xóa thói quen?")
+                .setMessage("Lịch sử đã ghi sẽ được giữ lại nhưng thói quen sẽ bị ẩn.")
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.delete, (dialog, which) -> {
+                    if (habitCloud == null) return;
+                    int id = Integer.parseInt(habit.sourceId);
+                    habitCloud.request(habitCloud.habits.delete(id),
+                            new vn.edu.taskmanager.cloud.CloudRepository.Result<Void>() {
+                        @Override public void success(Void ignored) {
+                            habitMutationVersion++;
+                            cancelHabitReminder(habit.sourceId);
+                            store.delete(habit.id);
+                            refresh();
+                            Toast.makeText(activity, "Đã xóa thói quen", Toast.LENGTH_SHORT).show();
+                        }
+                        @Override public void error(String message) {
+                            Toast.makeText(activity, "Chưa xóa được thói quen: " + message, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }).show();
+    }
+
+    private void showRemoteHabitDetails(String habitId) {
+        if (habitCloud == null) return;
+        habitCloud.request(habitCloud.habits.habit(Integer.parseInt(habitId)),
+                new vn.edu.taskmanager.cloud.CloudRepository.Result<vn.edu.taskmanager.cloud.CloudModels.Habit>() {
+            @Override public void success(vn.edu.taskmanager.cloud.CloudModels.Habit habit) {
+                showRemoteHabitCalendar(habit);
+            }
+            @Override public void error(String message) {
+                Toast.makeText(activity, "Không tải được chi tiết thói quen: " + message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void showRemoteHabitCalendar(vn.edu.taskmanager.cloud.CloudModels.Habit habit) {
+        LinearLayout content = new LinearLayout(activity);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(16), dp(8), dp(16), dp(8));
+        TextView description = text(content, habit.icon + "  " + habit.name + "\nMục tiêu: "
+                + habit.targetCount + " " + habit.targetUnit + " mỗi ngày\n"
+                + "Chuỗi hiện tại: " + habit.currentStreak + " · Kỷ lục: " + habit.longestStreak
+                + "\nHoàn thành: " + habit.completedDays + "/" + habit.scheduledDays
+                + " ngày · " + habit.completionRate + "%", 15);
+        TextView periodStats = text(content, "", 13);
+        LinearLayout monthNavigation = new LinearLayout(activity);
+        monthNavigation.setGravity(Gravity.CENTER);
+        Button previous = new Button(activity);
+        previous.setText("‹");
+        Button next = new Button(activity);
+        next.setText("›");
+        TextView monthLabel = new TextView(activity);
+        monthLabel.setTextSize(16);
+        monthLabel.setTextColor(ContextCompat.getColor(activity, R.color.workspace_text));
+        monthLabel.setGravity(Gravity.CENTER);
+        monthNavigation.addView(previous, new LinearLayout.LayoutParams(dp(52), dp(44)));
+        monthNavigation.addView(monthLabel, new LinearLayout.LayoutParams(0, dp(44), 1));
+        monthNavigation.addView(next, new LinearLayout.LayoutParams(dp(52), dp(44)));
+        content.addView(monthNavigation);
+        LinearLayout dayNames = new LinearLayout(activity);
+        String[] names = {"T2", "T3", "T4", "T5", "T6", "T7", "CN"};
+        for (String name : names) {
+            TextView dayName = text(dayNames, name, 12);
+            dayName.setGravity(Gravity.CENTER);
+            dayName.setLayoutParams(new LinearLayout.LayoutParams(0, dp(30), 1));
+        }
+        content.addView(dayNames);
+        GridLayout calendar = new GridLayout(activity);
+        calendar.setColumnCount(7);
+        content.addView(calendar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        TextView selectedInfo = text(content, "", 14);
+        periodStats.setPadding(0, dp(8), 0, dp(8));
+        selectedInfo.setPadding(0, dp(8), 0, dp(8));
+        Calendar month = Calendar.getInstance();
+        String[] selectedDate = {LocalStore.today()};
+        android.widget.ScrollView scroll = new android.widget.ScrollView(activity);
+        scroll.addView(content);
+        final AlertDialog dialog = new AlertDialog.Builder(activity).setTitle("Chi tiết thói quen")
+                .setView(scroll)
+                .setNegativeButton(R.string.close, null)
+                .setNeutralButton("Xóa", null)
+                .setPositiveButton("Sửa", null).create();
+        Runnable[] loadMonth = new Runnable[1];
+        loadMonth[0] = () -> {
+            Calendar start = (Calendar) month.clone();
+            start.set(Calendar.DAY_OF_MONTH, 1);
+            Calendar end = (Calendar) start.clone();
+            end.add(Calendar.MONTH, 1);
+            end.add(Calendar.DAY_OF_MONTH, -1);
+            String from = LocalStore.day(start.getTime());
+            String to = LocalStore.day(end.getTime());
+            monthLabel.setText(new SimpleDateFormat("MMMM yyyy", vietnamese).format(start.getTime()));
+            if (habitCloud == null) return;
+            habitCloud.request(habitCloud.habits.history(habit.id, from, to),
+                    new vn.edu.taskmanager.cloud.CloudRepository.Result<List<vn.edu.taskmanager.cloud.CloudModels.Day>>() {
+                @Override public void success(List<vn.edu.taskmanager.cloud.CloudModels.Day> days) {
+                    calendar.removeAllViews();
+                    Map<String, vn.edu.taskmanager.cloud.CloudModels.Day> byDate = new HashMap<>();
+                    int monthScheduled = 0, monthDone = 0, weekScheduled = 0, weekDone = 0;
+                    Calendar today = Calendar.getInstance();
+                    Calendar monday = Calendar.getInstance();
+                    monday.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
+                    for (vn.edu.taskmanager.cloud.CloudModels.Day day : days) {
+                        byDate.put(day.date, day);
+                        if (day.date.compareTo(LocalStore.today()) > 0) continue;
+                        if (day.scheduled) {
+                            monthScheduled++;
+                            if (day.completed) monthDone++;
+                            Calendar dayCalendar = Calendar.getInstance();
+                            String[] p = day.date.split("-");
+                            dayCalendar.set(Integer.parseInt(p[0]), Integer.parseInt(p[1]) - 1, Integer.parseInt(p[2]));
+                            if (!dayCalendar.before(monday) && !dayCalendar.after(today)) {
+                                weekScheduled++;
+                                if (day.completed) weekDone++;
+                            }
+                        }
+                    }
+                    periodStats.setText("Tuần này: " + weekDone + "/" + weekScheduled
+                            + " · Tháng này: " + monthDone + "/" + monthScheduled);
+                    Calendar first = (Calendar) month.clone();
+                    first.set(Calendar.DAY_OF_MONTH, 1);
+                    int offset = (first.get(Calendar.DAY_OF_WEEK) + 5) % 7;
+                    for (int empty = 0; empty < offset; empty++) addCalendarCell(calendar, "", false, false, null);
+                    int count = first.getActualMaximum(Calendar.DAY_OF_MONTH);
+                    for (int d = 1; d <= count; d++) {
+                        Calendar date = (Calendar) first.clone();
+                        date.set(Calendar.DAY_OF_MONTH, d);
+                        String key = LocalStore.day(date.getTime());
+                        vn.edu.taskmanager.cloud.CloudModels.Day result = byDate.get(key);
+                        String label = String.valueOf(d);
+                        if (result != null && result.scheduled) label += result.completed ? " ✓" : " •";
+                        addCalendarCell(calendar, label, result != null && result.scheduled,
+                                key.equals(selectedDate[0]), () -> {
+                                    selectedDate[0] = key;
+                                    renderSelectedHabitDay(selectedInfo, result, key, habit);
+                                    refreshCalendarSelection(calendar, selectedDate[0], first, byDate);
+                                });
+                    }
+                    renderSelectedHabitDay(selectedInfo, byDate.get(selectedDate[0]), selectedDate[0], habit);
+                    cacheHabitHistory(habit, days);
+                }
+                @Override public void error(String message) {
+                    periodStats.setText("Không tải được lịch sử: " + message);
+                }
+            });
+        };
+        previous.setOnClickListener(v -> { month.add(Calendar.MONTH, -1); loadMonth[0].run(); });
+        next.setOnClickListener(v -> {
+            Calendar current = Calendar.getInstance();
+            if (month.get(Calendar.YEAR) < current.get(Calendar.YEAR)
+                    || month.get(Calendar.MONTH) < current.get(Calendar.MONTH)) {
+                month.add(Calendar.MONTH, 1);
+                loadMonth[0].run();
+            }
+        });
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                dialog.dismiss();
+                showHabitEditor(habit);
+            });
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                dialog.dismiss();
+                LocalStore.Entry entry = store.find("api-habit-" + habit.id);
+                if (entry != null) confirmRemoteHabitDelete(entry);
+            });
+            loadMonth[0].run();
+        });
+        dialog.show();
+    }
+
+    private void addCalendarCell(GridLayout grid, String label, boolean scheduled, boolean selected,
+            Runnable onClick) {
+        TextView cell = new TextView(activity);
+        cell.setText(label);
+        cell.setTextSize(12);
+        cell.setTextColor(ContextCompat.getColor(activity, R.color.workspace_text));
+        cell.setPadding(dp(2), dp(4), dp(2), dp(4));
+        cell.setGravity(Gravity.CENTER);
+        GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+        params.width = 0;
+        params.height = dp(42);
+        params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+        grid.addView(cell, params);
+        cell.setBackgroundResource(selected ? R.drawable.day_selected
+                : scheduled ? R.drawable.control_soft : android.R.color.transparent);
+        cell.setOnClickListener(onClick == null ? null : view -> onClick.run());
+    }
+
+    private void refreshCalendarSelection(GridLayout grid, String selectedDate, Calendar month,
+            Map<String, vn.edu.taskmanager.cloud.CloudModels.Day> days) {
+        Calendar first = (Calendar) month.clone();
+        first.set(Calendar.DAY_OF_MONTH, 1);
+        int offset = (first.get(Calendar.DAY_OF_WEEK) + 5) % 7;
+        int cellIndex = 0;
+        for (int i = 0; i < offset; i++) cellIndex++;
+        for (int d = 1; d <= first.getActualMaximum(Calendar.DAY_OF_MONTH); d++) {
+            Calendar date = (Calendar) first.clone();
+            date.set(Calendar.DAY_OF_MONTH, d);
+            String key = LocalStore.day(date.getTime());
+            vn.edu.taskmanager.cloud.CloudModels.Day result = days.get(key);
+            TextView cell = (TextView) grid.getChildAt(cellIndex++);
+            if (cell != null) cell.setBackgroundResource(key.equals(selectedDate) ? R.drawable.day_selected
+                    : result != null && result.scheduled ? R.drawable.control_soft : android.R.color.transparent);
+        }
+    }
+
+    private void renderSelectedHabitDay(TextView view, vn.edu.taskmanager.cloud.CloudModels.Day day,
+            String date, vn.edu.taskmanager.cloud.CloudModels.Habit habit) {
+        String result;
+        if (day == null || !day.scheduled) result = "Không nằm trong lịch thực hiện";
+        else result = day.completed ? "Đã hoàn thành · " : "Chưa hoàn thành · "
+                + day.actualCount + "/" + habit.targetCount + " " + habit.targetUnit;
+        view.setText(MainActivity.displayDate(date) + " · " + result);
+    }
+
+    private void cacheHabitHistory(vn.edu.taskmanager.cloud.CloudModels.Habit habit,
+            List<vn.edu.taskmanager.cloud.CloudModels.Day> days) {
+        LocalStore.Entry entry = store.find("api-habit-" + habit.id);
+        if (entry == null) return;
+        for (vn.edu.taskmanager.cloud.CloudModels.Day day : days) {
+            int progress = Math.min(100, day.actualCount * 100 / Math.max(1, habit.targetCount));
+            entry.dailyProgress.put(day.date, progress);
+            entry.days.remove(day.date);
+            if (day.completed) entry.days.add(day.date);
+        }
+        store.save(entry);
     }
 
     // =========================================================================
@@ -1259,11 +1930,25 @@ public class WorkspaceController {
         for (int i = 0; i < ids.length; i++) {
             final int which = i;
             view.findViewById(ids[i]).setOnClickListener(v -> {
-                habitsOnly = which == 3; collapsed = false;
-                activity.useTaskFilter(which < 3 ? which : 0, "", "");
-                dialog.dismiss(); selectTab(0);
+                if (which == 3) showAllHabits();
+                else {
+                    habitsOnly = false; collapsed = false;
+                    activity.setTaskStatusFilter(which == 0 ? 0 : which);
+                    selectTab(0);
+                }
+                dialog.dismiss();
             });
         }
+        Button dateFilterButton = view.findViewById(R.id.filterTaskDate);
+        String[] dateFilterLabels = {"theo màn hình", "tất cả ngày", "quá hạn", "chưa lên lịch"};
+        int dateFilter = Math.max(0, Math.min(activity.getDateFilter(), dateFilterLabels.length - 1));
+        dateFilterButton.setText("Ngày thực hiện: " + dateFilterLabels[dateFilter]);
+        dateFilterButton.setOnClickListener(v -> showTaskDateFilterDialog(dateFilterButton));
+        Button priorityFilterButton = view.findViewById(R.id.filterTaskPriority);
+        int currentPriorityFilter = activity.getPriorityFilter();
+        priorityFilterButton.setText("Mức ưu tiên: " + (currentPriorityFilter == 0
+                ? "tất cả" : TaskPriority.label(currentPriorityFilter)));
+        priorityFilterButton.setOnClickListener(v -> showTaskPriorityFilterDialog(priorityFilterButton));
         LinearLayout rows = view.findViewById(R.id.customLists);
         TaskListUi.bind(activity, rows, dialog);
         for (LocalStore.Entry entry : store.entries(null)) {
@@ -1285,6 +1970,7 @@ public class WorkspaceController {
                                 }).show();
                     }).show());
         }
+
         ((Button) view.findViewById(R.id.listAllTasks)).setText("Tất cả công việc                 " + tasks.size());
         ((Button) view.findViewById(R.id.listHabits)).setText("Tất cả thói quen                 " + store.entries("habit").size());
         EditText search = view.findViewById(R.id.drawerSearch);
@@ -1310,6 +1996,36 @@ public class WorkspaceController {
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
             dialog.getWindow().setLayout((int) (activity.getResources().getDisplayMetrics().widthPixels * .78), ViewGroup.LayoutParams.MATCH_PARENT);
         }
+    }
+
+    public void showAllHabits() {
+        habitsOnly = true;
+        collapsed = false;
+        activity.useTaskFilter(0, "", "");
+        selectTab(0);
+    }
+
+    private void showTaskDateFilterDialog(Button filterButton) {
+        String[] options = {"Theo ngày đang xem", "Tất cả ngày", "Quá hạn", "Chưa lên lịch"};
+        new AlertDialog.Builder(activity).setTitle("Lọc theo ngày thực hiện")
+                .setSingleChoiceItems(options, activity.getDateFilter(), (dialog, selectedFilter) -> {
+                    activity.setDateFilter(selectedFilter);
+                    filterButton.setText("Ngày thực hiện: " + new String[]{
+                            "theo màn hình", "tất cả ngày", "quá hạn", "chưa lên lịch"
+                    }[selectedFilter]);
+                    dialog.dismiss();
+                }).setNegativeButton(R.string.cancel, null).show();
+    }
+
+    private void showTaskPriorityFilterDialog(Button filterButton) {
+        String[] options = {"Tất cả mức ưu tiên", "Làm ngay", "Lên lịch", "Ủy quyền", "Loại bỏ"};
+        new AlertDialog.Builder(activity).setTitle("Lọc theo mức ưu tiên")
+                .setSingleChoiceItems(options, activity.getPriorityFilter(), (dialog, selectedFilter) -> {
+                    activity.setPriorityFilter(selectedFilter);
+                    filterButton.setText("Mức ưu tiên: " + (selectedFilter == 0
+                            ? "tất cả" : TaskPriority.label(selectedFilter)));
+                    dialog.dismiss();
+                }).setNegativeButton(R.string.cancel, null).show();
     }
 
     private void manageCollections() {
@@ -1374,6 +2090,34 @@ public class WorkspaceController {
         }
     }
 
+    private void createCollection(String type, LocalStore.Entry old) {
+        LinearLayout layout = new LinearLayout(activity); layout.setOrientation(LinearLayout.VERTICAL); layout.setPadding(dp(20), dp(8), dp(20), dp(8));
+        EditText name = new EditText(activity); name.setHint("Tên danh sách / bộ lọc"); name.setSingleLine(true);
+        name.setText(old == null ? "" : old.title);
+        layout.addView(name);
+        EditText keyword = new EditText(activity);
+        keyword.setHint("Tên công việc chứa…");
+        keyword.setSingleLine(true);
+        keyword.setText(old == null ? "" : old.body);
+        layout.addView(keyword);
+        new AlertDialog.Builder(activity).setTitle(old == null ? "Tạo danh sách / bộ lọc" : "Sửa danh sách / bộ lọc")
+                .setView(layout).setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.save, (dialog, which) -> {
+                    String title = name.getText().toString().trim();
+                    if (title.isEmpty()) {
+                        name.setError("Nhập tên");
+                        return;
+                    }
+                    LocalStore.Entry entry = old == null ? new LocalStore.Entry() : old;
+                    entry.type = type;
+                    entry.title = title;
+                    entry.body = keyword.getText().toString().trim();
+                    entry.date = LocalStore.today();
+                    store.save(entry);
+                    refresh();
+                }).show();
+    }
+
     private void editFilter(LocalStore.Entry old) {
         LinearLayout layout = new LinearLayout(activity);
         layout.setOrientation(LinearLayout.VERTICAL); layout.setPadding(dp(20), dp(8), dp(20), dp(8));
@@ -1405,13 +2149,14 @@ public class WorkspaceController {
         LinearLayout rows = new LinearLayout(activity); rows.setOrientation(LinearLayout.VERTICAL); scroll.addView(rows);
         AlertDialog dialog = new AlertDialog.Builder(activity).setTitle(R.string.search_everything).setView(layout).setNegativeButton(R.string.close, null).create();
         search.addTextChangedListener(watcher(value -> {
-            rows.removeAllViews(); String keyword = value.trim().toLowerCase(Locale.ROOT);
-            if (keyword.isEmpty()) return;
-            for (Task task : tasks) if (task.title.toLowerCase(Locale.ROOT).contains(keyword))
+            rows.removeAllViews();
+            if (value.trim().isEmpty()) return;
+            for (Task task : tasks) if (vn.edu.taskmanager.TaskFilters.matchesSearch(task, value))
                 action(rows, "Công việc · " + task.title, () -> { dialog.dismiss(); activity.onEdit(task); });
             for (LocalStore.Entry entry : store.entries(null)) {
                 if (!Arrays.asList("habit", "note", "event").contains(entry.type)) continue;
-                if ((entry.title + " " + entry.body).toLowerCase(Locale.ROOT).contains(keyword))
+                if (vn.edu.taskmanager.util.VietnameseUtils.containsIgnoreAccents(
+                        entry.title + " " + entry.body, value))
                     action(rows, ("habit".equals(entry.type) ? "Thói quen" : "note".equals(entry.type) ? "Ghi chú" : "Sự kiện")
                             + " · " + entry.title, () -> { dialog.dismiss(); entryActions(entry); });
             }

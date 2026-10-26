@@ -11,6 +11,10 @@ import retrofit2.http.*;
 import retrofit2.converter.gson.GsonConverterFactory;
 import com.google.gson.GsonBuilder;
 import java.util.*;
+import java.net.ConnectException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 
 /** Sends changes without a separate screen; repeat requests cannot duplicate server entities. */
@@ -48,7 +52,7 @@ public final class WorkspaceSyncWorker extends Worker {
             return Result.success();
         }catch(Exception error){
             if(isStopped())return Result.failure();
-            String detail=error instanceof ApiFailure?error.getMessage():"Không kết nối được máy chủ";
+            String detail=error instanceof ApiFailure?error.getMessage():connectionMessage(error);
             state.edit().putString("status","Chưa lưu MySQL: "+detail+". Thay đổi được giữ trên điện thoại và sẽ thử lại.").apply();
             return Result.retry();
         }
@@ -59,8 +63,26 @@ public final class WorkspaceSyncWorker extends Worker {
             .addInterceptor(chain->{okhttp3.Request.Builder request=chain.request().newBuilder();if(!token.isEmpty())request.header("Authorization","Bearer "+token);return chain.proceed(request.build());}).build();
         Api api=new Retrofit.Builder().baseUrl(url).client(client).addConverterFactory(GsonConverterFactory.create(new GsonBuilder().serializeNulls().create())).build().create(Api.class);
         Response<Map<String,Object>> response=api.save(device,body).execute();
-        if(!response.isSuccessful()){if(response.errorBody()!=null)response.errorBody().close();throw new ApiFailure("HTTP "+response.code()+(response.code()==404?" — cần cập nhật backend và bật profile dev":""));}
+        if(!response.isSuccessful()){
+            if(response.errorBody()!=null)response.errorBody().close();
+            throw new ApiFailure("HTTP "+response.code()+(response.code()==404
+                    ?" — Task API chưa được bật; hãy chạy Update-DevelopmentBackend.ps1 để khởi động profile dev":""));
+        }
         if(response.body()==null||!(response.body().get("revision") instanceof Number)||((Number)response.body().get("revision")).longValue()<((Number)body.get("revision")).longValue())throw new ApiFailure("Máy chủ chưa xác nhận phiên bản dữ liệu");
+    }
+    private String connectionMessage(Exception error) {
+        String detail=causedBy(error,ConnectException.class)||causedBy(error,SocketException.class)
+                ?"không có dịch vụ lắng nghe hoặc chưa chuyển tiếp cổng"
+                :causedBy(error,UnknownHostException.class)?"không tìm thấy địa chỉ máy chủ"
+                :causedBy(error,SocketTimeoutException.class)?"máy chủ phản hồi quá thời gian chờ"
+                :error.getMessage();
+        int port=android.net.Uri.parse(vn.edu.taskmanager.BuildConfig.TASK_URL).getPort();
+        return "không kết nối được Task Service ("+detail+"). Nếu dùng USB, chạy `adb reverse tcp:"
+                +port+" tcp:"+port+"` trên máy tính";
+    }
+    private boolean causedBy(Throwable error,Class<? extends Throwable> type) {
+        for(Throwable cause=error;cause!=null;cause=cause.getCause())if(type.isInstance(cause))return true;
+        return false;
     }
     private static class ApiFailure extends Exception {ApiFailure(String message){super(message);}}
 }

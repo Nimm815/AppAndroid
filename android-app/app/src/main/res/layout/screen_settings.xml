@@ -7,6 +7,18 @@
             <ImageButton android:id="@+id/settingsMenu" style="@style/IconButton" app:srcCompat="@drawable/ic_menu" android:contentDescription="@string/manage_lists" android:layout_gravity="end|center_vertical" android:layout_marginEnd="12dp" />
         </FrameLayout>
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_margin="14dp" android:padding="16dp" android:orientation="vertical" android:background="@drawable/control_soft">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tài khoản" android:textStyle="bold" android:textSize="18sp" android:textColor="@color/workspace_text" />
+            <TextView android:id="@+id/accountStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Đang dùng trên thiết bị · chưa đăng nhập" android:textSize="14sp" android:textColor="@color/workspace_muted" />
+            <Button android:id="@+id/settingsAccountLogin" style="@style/WideButton" android:layout_marginTop="12dp" android:text="Đăng nhập / Đăng ký" />
+            <Button android:id="@+id/settingsAccountLogout" style="@style/WideButton" android:layout_marginTop="8dp" android:text="Đăng xuất" android:visibility="gone" />
+            <Button android:id="@+id/settingsAccountDelete" style="@style/WideButton" android:layout_marginTop="8dp" android:text="Xóa tài khoản" android:visibility="gone" android:textColor="#D94B4B" />
+            <Button
+                android:id="@+id/settingsAccountChangePassword"
+                style="@style/WideButton"
+                android:layout_marginTop="8dp"
+                android:text="Đổi mật khẩu"
+                android:visibility="gone" />
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="60dp" android:layout_margin="14dp" android:padding="8dp" android:background="@drawable/control_soft" android:gravity="center" android:orientation="vertical">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/local_account" android:textSize="16sp" android:textColor="@color/workspace_text" />
             <TextView android:id="@+id/syncStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="@string/sync_not_started" android:textSize="12sp" android:textColor="@color/workspace_muted" />
@@ -33,6 +45,11 @@
         <LinearLayout android:layout_width="match_parent" android:layout_height="80dp" android:padding="12dp" android:gravity="center_vertical">
             <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Báo cáo thói quen" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/workspace_text" />
             <Button android:id="@+id/settingsReport" style="@style/FlatButton" android:layout_width="132dp" android:layout_height="54dp" android:text="Xem   ›" />
+        </LinearLayout>
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="80dp" android:padding="12dp" android:gravity="center_vertical">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/personal_info" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/workspace_text" />
+            <Button android:id="@+id/settingsProfile" style="@style/FlatButton" android:layout_width="132dp" android:layout_height="54dp" android:text="@string/edit_profile" />
         </LinearLayout>
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/workspace_line" />
         <TextView style="@style/PanelText" android:text="@string/local_account_detail" android:textSize="13sp" />

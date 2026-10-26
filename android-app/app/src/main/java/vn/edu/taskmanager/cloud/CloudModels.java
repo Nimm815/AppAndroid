@@ -11,10 +11,10 @@ public final class CloudModels {
         public String title, description, notes, startDate, dueDate, priority, status;
     }
     public static class Habit {
-        public int id, weekdays, currentStreak, longestStreak, completedDays, scheduledDays;
+        public int id, weekdays, currentStreak, longestStreak, completedDays, scheduledDays, actualCountToday, targetCount;
         public double completionRate;
-        public boolean completedToday, scheduleConfigured;
-        public String name, description, icon, color, startDate;
+        public boolean completedToday, scheduleConfigured, reminderEnabled;
+        public String name, description, icon, color, startDate, targetUnit, reminderTime;
     }
     public static class Day {
         public String date;

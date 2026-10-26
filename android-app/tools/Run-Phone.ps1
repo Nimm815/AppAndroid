@@ -11,13 +11,25 @@ if (-not $Serial) {
 }
 if ($Serial -notin $devices) { throw 'Selected phone is not connected or USB debugging is not authorized.' }
 if (-not $SkipBackendUpdate) {
-    & (Join-Path $backend 'tools\Update-DevelopmentBackend.ps1')
+    & (Join-Path $backend 'tools\Start-TaskMindDev.ps1')
 }
-foreach ($localPort in @(8082)) {
-    $configured = [Environment]::GetEnvironmentVariable('TASK_PORT')
+foreach ($servicePort in @(@{Local=8081;Name='AUTH_PORT'},@{Local=8082;Name='TASK_PORT'},@{Local=8083;Name='PRODUCTIVITY_PORT'})) {
+    $localPort = $servicePort.Local
+    $configured = [Environment]::GetEnvironmentVariable($servicePort.Name)
     $remotePort = if ($configured) { [int]$configured } else { $localPort }
-    & $adb -s $Serial reverse "tcp:$localPort" "tcp:$remotePort"
-    if ($LASTEXITCODE -ne 0) { throw "USB port forwarding failed for $localPort." }
+    $reverseOutput = @(& $adb -s $Serial reverse "tcp:$localPort" "tcp:$remotePort" 2>&1)
+    $reverseExitCode = $LASTEXITCODE
+    $reverseList = @(& $adb -s $Serial reverse --list 2>&1)
+    $isForwarded = $LASTEXITCODE -eq 0 -and $reverseList -match "tcp:$localPort\s+tcp:$remotePort"
+    if ($reverseExitCode -ne 0 -or -not $isForwarded) {
+        if ($localPort -eq 8081) {
+            Write-Warning "Auth Service USB reverse chưa sẵn sàng; cổng điện thoại có thể đang được ứng dụng khác sử dụng. $($reverseOutput -join ' ')"
+        } else {
+            throw "USB port forwarding failed for $localPort. $($reverseOutput -join ' ')"
+        }
+    } else {
+        Write-Host "ADB reverse đã xác nhận: tcp:$localPort -> tcp:$remotePort."
+    }
 }
 & (Join-Path $app 'gradlew.bat') -p $app assembleDebug
 if ($LASTEXITCODE -ne 0) { throw 'Android build failed.' }
