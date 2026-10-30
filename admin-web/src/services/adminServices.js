@@ -1,5 +1,6 @@
-const ADMIN_API = import.meta.env.VITE_ADMIN_API_URL || 'http://localhost:8082/api/admin'
-const backendOrigin = ADMIN_API.replace(/\/api\/admin\/?$/, '')
+const AUTH_ADMIN_API = import.meta.env.VITE_AUTH_ADMIN_API_URL || 'http://localhost:8081/api/admin'
+const TASK_ADMIN_API = import.meta.env.VITE_TASK_ADMIN_API_URL || 'http://localhost:8082/api/admin'
+const PRODUCTIVITY_ADMIN_API = import.meta.env.VITE_PRODUCTIVITY_ADMIN_API_URL || 'http://localhost:8083/api/admin'
 
 export class ApiNotConfiguredError extends Error {
   constructor(message) {
@@ -10,13 +11,16 @@ export class ApiNotConfiguredError extends Error {
 
 async function request(url, options) {
   const response = await fetch(url, options)
-  if (!response.ok) throw new Error(`Backend trả về lỗi ${response.status}`)
+  if (!response.ok) throw new Error(`Microservice trả về lỗi ${response.status}`)
   return response.status === 204 ? null : response.json()
 }
 
-// Backend hiện chưa có hợp đồng/API nhật ký hoạt động. Adapter này là điểm tích hợp sau.
-export async function getActivityLogs() {
-  throw new ApiNotConfiguredError('Backend hiện chưa cung cấp API nhật ký hoạt động. Chưa có bản ghi nào được tải.')
+export async function getActivityLogs(filters = {}) {
+  const params = new URLSearchParams({
+    search: filters.search || '', kind: filters.kind || 'all',
+    range: filters.range || '30', page: String(filters.page || 0), size: String(filters.size || 10),
+  })
+  return request(`${PRODUCTIVITY_ADMIN_API}/activity?${params}`)
 }
 
 export async function changeAdminPassword() {
@@ -28,5 +32,8 @@ export async function saveNotificationSettings() {
 }
 
 export async function getBackendHealth() {
-  return request(`${backendOrigin}/api/health/database`)
+  const [auth, task, productivity] = await Promise.all([
+    request(`${AUTH_ADMIN_API}/stats`), request(`${TASK_ADMIN_API}/stats`), request(`${PRODUCTIVITY_ADMIN_API}/stats`),
+  ])
+  return { database: `Auth ${auth.totalUsers} tài khoản · Task ${task.taskCount} công việc · Productivity ${productivity.activityCount30Days} hoạt động/30 ngày` }
 }

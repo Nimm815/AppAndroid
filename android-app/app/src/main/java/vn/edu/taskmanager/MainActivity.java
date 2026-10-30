@@ -32,11 +32,12 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     private int priorityFilter;
     private int dateFilter = TaskFilters.DATE_CURRENT_VIEW;
     private WorkspaceController workspace;
+    private String accountStorageNamespace;
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener syncListener = (preferences, key) -> {
         if ("status".equals(key)) runOnUiThread(() -> {
             String status = preferences.getString("status", "");
             if (workspace != null) workspace.refreshSyncStatus();
-            if (status.startsWith("Chưa lưu"))
+            if (status.startsWith("Chưa lưu") || status.startsWith("Chưa đồng bộ"))
                 Toast.makeText(this, status, Toast.LENGTH_LONG).show();
         });
     };
@@ -47,6 +48,11 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
     @Override protected void onResume() {
         super.onResume();
         if (isFinishing()) return;
+        String currentStorage = vn.edu.taskmanager.auth.Session.storage(this, "personal_tasks.db");
+        if (accountStorageNamespace != null && !accountStorageNamespace.equals(currentStorage)) {
+            recreate();
+            return;
+        }
         vn.edu.taskmanager.sync.WorkspaceSync.state(this).registerOnSharedPreferenceChangeListener(syncListener);
         if (vn.edu.taskmanager.sync.WorkspaceSync.configured(this)) vn.edu.taskmanager.sync.WorkspaceSync.enqueue(this);
         if (workspace != null) {
@@ -71,6 +77,7 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        accountStorageNamespace = vn.edu.taskmanager.auth.Session.storage(this, "personal_tasks.db");
         WorkspaceController.applyTheme(this);
         setContentView(R.layout.activity_main);
         model = new ViewModelProvider(this).get(TaskViewModel.class);

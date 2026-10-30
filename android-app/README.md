@@ -21,9 +21,9 @@ Kiểm tra build: `./gradlew.bat assembleDebug assembleDebugAndroidTest lintDebu
 Phiên bản đầu tiên dùng Java + XML, RecyclerView và Room. Có thêm, sửa tên,
 xóa (có xác nhận), đánh dấu hoàn thành và bỏ đánh dấu. Tên được bỏ khoảng trắng
 ở hai đầu và không được trống. Công việc chưa hoàn thành hiển thị trước.
-Dữ liệu nằm trong `personal_tasks.db` trên điện thoại, không cần mạng.
+Dữ liệu nằm trong `personal_tasks.db` trên điện thoại; các phần năng suất khác vẫn có bản lưu cục bộ, không cần mạng.
 Đóng app hoặc khởi động lại điện thoại không xóa dữ liệu; gỡ app hoặc xóa dữ
-liệu ứng dụng sẽ xóa công việc. Ứng dụng chưa có màn hình đăng nhập; riêng hồ sơ cá nhân có thể lưu cục bộ hoặc đồng bộ qua Auth Service khi có bearer token hợp lệ.
+liệu ứng dụng sẽ xóa dữ liệu cục bộ. Đăng nhập/đăng ký nằm trong **Cài đặt → Tài khoản**.
 
 ## Mở và chạy bằng Android Studio
 
@@ -85,11 +85,26 @@ Kiểm tra thủ công trên app:
 
 Trong tab **Cài đặt**, chọn **Thông tin cá nhân → Chỉnh sửa**. Có thể nhập họ tên/email, số điện thoại Việt Nam, ngày sinh và giới tính; chọn ảnh qua bộ chọn ảnh hệ thống, không cần cấp quyền đọc toàn bộ bộ nhớ.
 
-Khi chưa có phiên đăng nhập, nút **Lưu thay đổi** lưu hồ sơ và ảnh trong vùng dữ liệu riêng của ứng dụng trên điện thoại. Màn hình ghi rõ trạng thái chưa đồng bộ MySQL; không tạo tài khoản hoặc user ID giả. Android hiện chưa có luồng đăng nhập/đăng ký, vì vậy muốn đọc/ghi hồ sơ MySQL cần tích hợp bearer token hợp lệ trước.
+Khi chưa đăng nhập, hồ sơ và ảnh chỉ lưu trên điện thoại. Sau khi đăng nhập, hồ sơ được tải/lưu qua Auth Service bằng bearer token thật; mật khẩu không được lưu trên điện thoại.
 
 Khi có token, Android gọi Auth Service tại `AUTH_URL` (mặc định debug `http://127.0.0.1:8081/`): `GET/PUT /api/users/me` và `POST/GET /api/users/me/avatar`. Để thử trên USB, chạy `backend-spring\tools\Start-TaskMindDev.ps1` trước; script sẽ thử chuyển tiếp cổng Auth `8081` cùng Task `8082` và Productivity `8083`. Nếu ADB báo cổng 8081 trên điện thoại đang được ứng dụng khác sử dụng, Auth reverse không hoạt động cho đến khi giải phóng cổng đó; các hồ sơ cục bộ vẫn dùng được.
 
 `PersonalProfileActivity` là giao diện, `PersonalProfileViewModel` giữ trạng thái khi xoay màn hình và gọi Retrofit; `ProfileValidator` kiểm tra dữ liệu trước khi gửi. Nếu API chưa xác nhận thành công, app không hiển thị trạng thái đã lưu máy chủ.
+
+## Đồng bộ với backend microservices
+
+Android giữ dữ liệu cục bộ. Sau khi đăng nhập và có mạng, worker gửi thay đổi lên backend: công việc/danh sách qua Task Service; thói quen cục bộ, nhật ký, sự kiện, lời nhắc và lịch sử ngày qua Productivity Service. Thói quen đã tạo trực tiếp trên API tiếp tục dùng Habit API. Khi chưa đăng nhập hoặc bị offline, dữ liệu vẫn ở trên điện thoại.
+
+Để chạy luồng này trên máy phát triển:
+
+1. Đảm bảo MySQL đang chạy và đã tạo các schema theo `backend-spring/database/00_create_databases.sql`.
+2. Từ `backend-spring`, build JAR một lần sau khi đổi mã nguồn: `..\android-app\gradlew.bat :auth-service:bootJar :task-service:bootJar :productivity-service:bootJar`.
+3. Chạy `.\tools\Start-TaskMindDev.ps1`; script hỏi thông tin kết nối MySQL cho ba service đang chạy. Không gửi mật khẩu qua chat hoặc commit vào Git.
+4. Chạy app, mở **Cài đặt → Tài khoản**, đăng nhập hoặc tạo tài khoản rồi đăng nhập. Với điện thoại USB, script thử thiết lập `adb reverse` cho cổng 8081–8083.
+
+`TaskMind_Database.sql` là dump có lệnh `DROP TABLE IF EXISTS`; không nạp thẳng vào database đang chứa dữ liệu cần giữ. Flyway sẽ áp dụng Task V4 cho thời điểm tạo công việc và Productivity V6 cho nhật ký, sự kiện, lời nhắc, lịch sử ngày cùng các thuộc tính ghi chú. Database `taskmind_ai_db` chưa được tích hợp vào luồng app vì gợi ý AI chưa được triển khai. Cấu hình lời nhắc đồng bộ lên server; thông báo Android vẫn do thiết bị phát.
+
+Worker kéo các mục còn thiếu từ snapshot gắn với cùng tài khoản và mã thiết bị; nếu máy chủ có revision cao hơn thì ghép phần còn thiếu rồi gửi snapshot với revision mới. Bản ghi có cùng ID không tự ghi đè dữ liệu cục bộ. Đây chưa phải cơ chế giải quyết xung đột đầy đủ giữa nhiều thiết bị; dữ liệu bị xóa ở thiết bị này cũng chưa lan sang thiết bị khác.
 
 ## Các màn hình tham khảo HelloHabit
 
@@ -130,10 +145,7 @@ Chọn thói quen trong bộ hẹn giờ không tự đánh dấu thói quen ho�
 Bộ hẹn giờ giữ thời gian khi chuyển màn hình và xoay máy; chưa có thông báo nền khi
 đóng app. Danh sách ba vòng gần nhất chỉ giữ trong phiên chạy, chưa xuất lịch sử tập trung.
 
-Công việc vẫn nằm trong Room (`personal_tasks.db`). Ghi chú, thói quen, lịch sử ngày,
-sự kiện, danh sách và bộ lọc được lưu bằng JSON trong SharedPreferences
-(`personal_workspace`) cho bản giao diện cục bộ có ít dữ liệu. Khi mở rộng và nối
-backend, cần chuyển phần dữ liệu này sang Room/API qua lớp quản lý dữ liệu.
+Room và SharedPreferences vẫn là bản lưu cục bộ để giao diện chạy offline. Khi đã đăng nhập và backend đang chạy, worker đồng bộ công việc/danh sách lên `taskmind_task_db`; thói quen, nhật ký, sự kiện, lời nhắc và lịch sử ngày lên `taskmind_productivity_db`; tài khoản/hồ sơ thuộc `taskmind_auth_db`. Dữ liệu cục bộ vẫn được giữ trên điện thoại.
 Không cần gỡ app để cập nhật. Room nâng từ schema 1 lên 2 bằng `MIGRATION_1_2`:
 thêm `scheduledDate` và `createdAt`, giữ nguyên mã, tên và trạng thái công việc cũ.
 Công việc cũ để Chưa lên lịch; không đoán ngày tạo/ngày thực hiện của dữ liệu cũ.
@@ -180,7 +192,7 @@ màn hình hẹn giờ/báo cáo về bốn tab chính; `res/values/design.xml` 
 kiểu nút và `res/drawable/ic_*.xml` chứa biểu tượng.
 
 Đây là bản triển khai Java + XML theo các màn hình đã cung cấp, chưa phải toàn bộ
-sản phẩm HelloHabit. Các tính năng máy chủ vẫn theo phạm vi giai đoạn sau.
+sản phẩm HelloHabit. Các tính năng gợi ý AI và đồng bộ đa thiết bị vẫn thuộc giai đoạn sau.
 
 1. Chạy app bằng Run trong Android Studio, không tạo lại dự án.
 2. Công việc: thử thêm/sửa/xóa/hoàn thành và tìm kiếm; dữ liệu cũ phải còn.
@@ -192,8 +204,7 @@ sản phẩm HelloHabit. Các tính năng máy chủ vẫn theo phạm vi giai �
 8. Báo cáo: thử các kỳ, lưu PNG qua trình chọn tệp và chia sẻ văn bản.
 9. Cài đặt: đổi sáng/tối rồi đổi lại; kiểm tra chữ và các nút đọc được.
 
-Chưa có đăng nhập, đồng bộ máy chủ, nhắc việc bằng thông báo, tích hợp Health Connect,
-lịch bên ngoài hoặc gói Premium. Spring Boot, FastAPI và ReactJS triển khai ở giai đoạn sau.
+Đã có đăng nhập, hồ sơ và đồng bộ Android với API Auth/Task/Productivity; chưa có gợi ý AI hoặc xử lý xung đột đồng thời giữa nhiều thiết bị, tích hợp Health Connect, lịch bên ngoài hay gói Premium. Admin Web cần rà soát riêng với ranh giới microservices mới.
 ### Kết quả xác minh bản hiện tại
 
 - `assembleDebug` và `lintDebug`: thành công; Android Lint không có lỗi, còn các cảnh báo.

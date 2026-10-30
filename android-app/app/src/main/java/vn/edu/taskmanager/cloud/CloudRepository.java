@@ -18,10 +18,18 @@ public final class CloudRepository {
     public final HabitApi habits;
     private final Set<Call<?>> calls = new HashSet<>();
     private boolean closed;
+    private final android.content.Context context;
     public interface Result<T> { void success(T value); void error(String message); }
-    public CloudRepository(String taskUrl,String habitUrl) {
+    public CloudRepository(String taskUrl,String habitUrl,android.content.Context context) {
+        this.context=context.getApplicationContext();
         OkHttpClient client = new OkHttpClient.Builder().connectTimeout(10,TimeUnit.SECONDS)
-                .readTimeout(20,TimeUnit.SECONDS).writeTimeout(20,TimeUnit.SECONDS).retryOnConnectionFailure(false).build();
+                .readTimeout(20,TimeUnit.SECONDS).writeTimeout(20,TimeUnit.SECONDS).retryOnConnectionFailure(false)
+                .addInterceptor(chain -> {
+                    String token = vn.edu.taskmanager.auth.Session.token(this.context);
+                    okhttp3.Request.Builder request = chain.request().newBuilder();
+                    if (token != null && !token.isEmpty()) request.header("Authorization", "Bearer " + token);
+                    return chain.proceed(request.build());
+                }).build();
         tasks=retrofit(taskUrl,client).create(TaskApi.class);
         habits=retrofit(habitUrl,client).create(HabitApi.class);
     }
@@ -31,6 +39,12 @@ public final class CloudRepository {
     }
     public <T> void request(Call<T> call,Result<T> result) {
         if(closed)return;
+        if (!vn.edu.taskmanager.auth.AccountSession.isLoggedIn(context)) {
+            result.error(vn.edu.taskmanager.auth.AccountSession.authenticationRequired(context)
+                    ? "Đăng nhập lại để đồng bộ dữ liệu với tài khoản của bạn."
+                    : "Đăng nhập để dùng dữ liệu được lưu trên máy chủ.");
+            return;
+        }
         calls.add(call);
         call.enqueue(new Callback<T>() {
             public void onResponse(Call<T> c,Response<T> response) {

@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([switch]$PreflightOnly)
+param([switch]$PreflightOnly, [string]$DatabaseUsername)
 
 $ErrorActionPreference = 'Stop'
 $backendRoot = Split-Path $PSScriptRoot -Parent
@@ -41,7 +41,28 @@ function Start-MySqlService {
     }
 }
 
-function Set-And-VerifyDatabaseCredentials {
+function Set-And-VerifyDatabaseCredentials([string]$SharedUsername) {
+    if (-not [string]::IsNullOrWhiteSpace($SharedUsername)) {
+        if ($SharedUsername -match '\s') { throw 'DatabaseUsername must not contain whitespace.' }
+        $securePassword = Read-Host "MySQL password for shared user '$SharedUsername' (hidden)" -AsSecureString
+        try {
+            $sharedPassword = [System.Net.NetworkCredential]::new('', $securePassword).Password
+            if ([string]::IsNullOrEmpty($sharedPassword)) { throw 'Password must not be empty.' }
+            foreach ($credential in $requiredCredentials) {
+                $prefix = $credential.Prefix
+                [Environment]::SetEnvironmentVariable("${prefix}_DB_HOST", 'localhost', 'Process')
+                [Environment]::SetEnvironmentVariable("${prefix}_DB_PORT", '3306', 'Process')
+                [Environment]::SetEnvironmentVariable("${prefix}_DB_USERNAME", $SharedUsername, 'Process')
+                [Environment]::SetEnvironmentVariable("${prefix}_DB_PASSWORD", $sharedPassword, 'Process')
+                Write-Host "Configured $($credential.Service) with shared MySQL account '$SharedUsername' in this process."
+            }
+        } finally {
+            $sharedPassword = $null
+            if ($securePassword) { $securePassword.Dispose() }
+        }
+        return
+    }
+
     $configureScript = Join-Path $toolsRoot 'Set-DatabaseEnvironment.ps1'
     foreach ($credential in $requiredCredentials) {
         $usernameVariable = "$($credential.Prefix)_DB_USERNAME"
@@ -159,6 +180,20 @@ function Test-BackendApi([string]$serviceName, [int]$port, [string]$path,
     }
 }
 
+function Invoke-AdbCommand([string]$AdbPath, [string[]]$Arguments) {
+    # adb may write a normal daemon-start message to stderr; do not let the
+    # script-wide Stop preference turn that message into a startup failure.
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = @(& $AdbPath @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    [pscustomobject]@{ Output=$output; ExitCode=$exitCode }
+}
+
 function Set-AndroidUsbReverse([switch]$CheckOnly) {
     $sdkPath = $env:ANDROID_SDK_ROOT
     if (-not $sdkPath) { $sdkPath = $env:ANDROID_HOME }
@@ -188,8 +223,9 @@ function Set-AndroidUsbReverse([switch]$CheckOnly) {
         return
     }
 
-    $deviceOutput = @(& $adb devices 2>&1)
-    if ($LASTEXITCODE -ne 0) {
+    $deviceResult = Invoke-AdbCommand -AdbPath $adb -Arguments @('devices')
+    $deviceOutput = $deviceResult.Output
+    if ($deviceResult.ExitCode -ne 0) {
         Write-Warning "Không chạy được ADB devices: $($deviceOutput -join ' '). Backend vẫn tiếp tục chạy."
         return
     }
@@ -204,15 +240,17 @@ function Set-AndroidUsbReverse([switch]$CheckOnly) {
     foreach ($device in $devices) {
         if (-not $CheckOnly) {
             foreach ($port in @(8081,8082,8083)) {
-                $reverseOutput = @(& $adb -s $device reverse "tcp:$port" "tcp:$port" 2>&1)
-                if ($LASTEXITCODE -ne 0) {
+                $reverseResult = Invoke-AdbCommand -AdbPath $adb -Arguments @('-s', $device, 'reverse', "tcp:$port", "tcp:$port")
+                $reverseOutput = $reverseResult.Output
+                if ($reverseResult.ExitCode -ne 0) {
                     Write-Warning "Không tạo được ADB reverse cho $device cổng $port`: $($reverseOutput -join ' ')."
                     continue
                 }
             }
         }
-        $reverseList = @(& $adb -s $device reverse --list 2>&1)
-        if ($LASTEXITCODE -ne 0) {
+        $reverseListResult = Invoke-AdbCommand -AdbPath $adb -Arguments @('-s', $device, 'reverse', '--list')
+        $reverseList = $reverseListResult.Output
+        if ($reverseListResult.ExitCode -ne 0) {
             Write-Warning "Không xác minh được ADB reverse của $device`: $($reverseList -join ' ')."
             continue
         }
@@ -233,7 +271,7 @@ function Set-AndroidUsbReverse([switch]$CheckOnly) {
 
 try {
     Start-MySqlService
-    Set-And-VerifyDatabaseCredentials
+    Set-And-VerifyDatabaseCredentials $DatabaseUsername
 
     if ($PreflightOnly) {
         Write-Host 'Preflight hoàn tất. Không khởi động/restart backend và không gửi yêu cầu tới database.'

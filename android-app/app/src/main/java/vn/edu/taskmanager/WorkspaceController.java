@@ -77,7 +77,7 @@ public class WorkspaceController {
         preferences = activity.getSharedPreferences("workspace_settings", 0);
         habitCloud = vn.edu.taskmanager.BuildConfig.HABIT_URL.isEmpty() ? null
                 : new vn.edu.taskmanager.cloud.CloudRepository(vn.edu.taskmanager.BuildConfig.TASK_URL,
-                vn.edu.taskmanager.BuildConfig.HABIT_URL);
+                vn.edu.taskmanager.BuildConfig.HABIT_URL, activity);
 
         if (state != null) {
             tab = state.getInt("tab", 0);
@@ -104,7 +104,8 @@ public class WorkspaceController {
     }
 
     public void refreshHabitsFromServer() {
-        if (habitCloud == null || habitFetchInProgress) return;
+        if (habitCloud == null || habitFetchInProgress
+                || !AccountSession.isLoggedIn(activity)) return;
         habitFetchInProgress = true;
         long requestedMutationVersion = habitMutationVersion;
         habitCloud.request(habitCloud.habits.habits(),

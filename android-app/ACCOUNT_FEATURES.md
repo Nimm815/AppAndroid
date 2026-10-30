@@ -1,15 +1,5 @@
-# TaskMind - Chức năng tài khoản
+# Tài khoản và đồng bộ Android
 
-Thư mục này là dự án Android hiện có của bạn. Các thay đổi Android cho đăng ký, đăng nhập, đăng xuất và xóa tài khoản nằm trong `app/`.
+Tài liệu cũ về backend đơn khối `task_management_app` đã lỗi thời. Cấu hình hiện tại nằm trong `app/build.gradle`; API tài khoản chạy qua Auth Service, còn công việc và dữ liệu năng suất đồng bộ qua Task Service và Productivity Service.
 
-## API kết nối MySQL
-
-Mã nguồn API Spring Boot được đặt trong thư mục con `backend/` để toàn bộ mã nguồn nằm bên trong thư mục `android-app`. Đây là tiến trình máy chủ riêng, không phải module Android và cần chạy độc lập để ứng dụng kết nối MySQL an toàn.
-
-Cấu hình kết nối cơ sở dữ liệu `task_management_app` tại `backend/src/main/resources/application.properties` hoặc qua biến môi trường `DB_USERNAME`, `DB_PASSWORD` và `JWT_SECRET`.
-
-Trình giả lập Android dùng `http://10.0.2.2:8080` để truy cập máy chủ đang chạy trên máy tính. Điện thoại thật cần thay địa chỉ này bằng IP LAN của máy tính. HTTP chỉ dùng khi phát triển; triển khai thực tế cần HTTPS.
-
-## Giới hạn kiểm tra
-
-XML đã được kiểm tra cú pháp và gói ZIP đã được kiểm tra tính toàn vẹn trước khi đóng gói. Chưa xác nhận build Android/backend hoặc kiểm thử kết nối MySQL thực tế trong môi trường này.
+Xem hướng dẫn cài đặt, chạy backend, đồng bộ và giới hạn hiện tại trong [README.md](README.md). Các dịch vụ lưu lần lượt vào `taskmind_auth_db`, `taskmind_task_db` và `taskmind_productivity_db`. AI Service chưa được nối vào app. Không xóa database cũ hoặc nạp dump có lệnh `DROP TABLE` khi chưa đối chiếu dữ liệu.

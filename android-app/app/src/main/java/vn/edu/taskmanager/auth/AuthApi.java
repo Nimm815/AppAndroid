@@ -17,7 +17,7 @@ import java.util.concurrent.Executors;
 public final class AuthApi {
     // Android Emulator -> host machine. For a physical phone, replace with the computer's LAN IP.
 
-    public static final String BASE_URL = "http://127.0.0.1:8080/api/auth";
+    public static final String BASE_URL = vn.edu.taskmanager.BuildConfig.AUTH_URL + "api/auth";
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private AuthApi() {}

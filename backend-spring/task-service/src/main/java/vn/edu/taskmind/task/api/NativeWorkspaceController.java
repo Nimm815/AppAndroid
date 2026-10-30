@@ -7,12 +7,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 @RestController @Profile("dev") @RequestMapping("/api/native-workspace")
 public class NativeWorkspaceController {
  public record TaskInput(@NotBlank @Size(max=100) String id,@NotBlank @Size(max=200) String title,@NotNull String scheduledDate,
-  @Min(1) @Max(4) int priority,@Min(0) @Max(100) int progress,@Size(max=10000) String note){}
- public record ListInput(@NotBlank @Size(max=100) String id,@NotBlank @Size(max=100) String title,@NotNull @Size(max=10000) List<String> members){}
+  @Min(1) @Max(4) int priority,@Min(0) @Max(100) int progress,@Size(max=10000) String note,@Min(0) long createdAt){}
+ public record ListInput(@NotBlank @Size(max=100) String id,@NotBlank @Size(max=100) String title,@NotNull @Size(max=10000) List<String> members,@Min(0) long createdAt){}
  public record Snapshot(@Min(0) long revision,@NotNull @Size(max=10000) List<@Valid TaskInput> tasks,@NotNull @Size(max=2000) List<@Valid ListInput> lists){}
  final DeviceWorkspaceStore store;final ObjectMapper json;
  public NativeWorkspaceController(DeviceWorkspaceStore s,ObjectMapper j){store=s;json=j;}
@@ -23,12 +26,14 @@ public class NativeWorkspaceController {
   var db=store.db;int user=store.user.id();Map<String,Integer> tasks=new HashMap<>(),lists=new HashMap<>();
   for(var t:body.tasks()){
    String date=t.scheduledDate().isEmpty()?null:LocalDate.parse(t.scheduledDate()).toString();
-   Integer id=store.id(device,"task",t.id());if(id==null)id=store.create(device,"task",t.id(),"INSERT INTO tasks(UserID,Title,Priority,Status) VALUES (?,?,'MEDIUM','PENDING')",user,t.title());
+   LocalDateTime created=t.createdAt()>0?LocalDateTime.ofInstant(Instant.ofEpochMilli(t.createdAt()),ZoneOffset.UTC):LocalDateTime.now(ZoneOffset.UTC);
+   Integer id=store.id(device,"task",t.id());if(id==null)id=store.create(device,"task",t.id(),"INSERT INTO tasks(UserID,Title,Priority,Status,CreatedAt) VALUES (?,?,'MEDIUM','PENDING',?)",user,t.title(),created);
    String priority=t.priority()==1?"HIGH":t.priority()==2?"MEDIUM":"LOW", status=t.progress()==100?"COMPLETED":t.progress()==0?"PENDING":"IN_PROGRESS";
-   db.update("UPDATE tasks SET Title=?,ScheduledDate=?,LocalPriority=?,Priority=?,Progress=?,Status=?,Notes=?,CompletedAt=CASE WHEN ?=100 THEN COALESCE(CompletedAt,UTC_TIMESTAMP()) ELSE NULL END WHERE TaskID=? AND UserID=?",t.title(),date,t.priority(),priority,t.progress(),status,t.note(),t.progress(),id,user);tasks.put(t.id(),id);
+   db.update("UPDATE tasks SET Title=?,ScheduledDate=?,LocalPriority=?,Priority=?,Progress=?,Status=?,Notes=?,CreatedAt=?,CompletedAt=CASE WHEN ?=100 THEN COALESCE(CompletedAt,UTC_TIMESTAMP()) ELSE NULL END WHERE TaskID=? AND UserID=?",t.title(),date,t.priority(),priority,t.progress(),status,t.note(),created,t.progress(),id,user);tasks.put(t.id(),id);
   }
   for(var l:body.lists()){
-   Integer id=store.id(device,"list",l.id());if(id==null)id=store.create(device,"list",l.id(),"INSERT INTO tasklists(UserID,ListName) VALUES (?,?)",user,l.title());
+   LocalDateTime created=l.createdAt()>0?LocalDateTime.ofInstant(Instant.ofEpochMilli(l.createdAt()),ZoneOffset.UTC):LocalDateTime.now(ZoneOffset.UTC);
+   Integer id=store.id(device,"list",l.id());if(id==null)id=store.create(device,"list",l.id(),"INSERT INTO tasklists(UserID,ListName,CreatedAt) VALUES (?,?,?)",user,l.title(),created);
    db.update("UPDATE tasklists SET ListName=? WHERE ListID=? AND UserID=?",l.title(),id,user);lists.put(l.id(),id);
   }
   // Only memberships of this device's mapped tasks are replaced; other devices are untouched.

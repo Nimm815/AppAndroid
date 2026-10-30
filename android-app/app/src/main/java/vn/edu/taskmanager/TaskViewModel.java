@@ -46,9 +46,10 @@ public class TaskViewModel extends AndroidViewModel {
         taskLists = database.taskListDao().observeLists();
         executor.execute(() -> {
             try {
+                boolean importNeeded = database.taskListDao().imported() == 0;
                 LegacyTaskListImporter.importOnce(application, database);
                 listsReady.postValue(true);
-                vn.edu.taskmanager.sync.WorkspaceSync.changed(getApplication());
+                if (importNeeded) vn.edu.taskmanager.sync.WorkspaceSync.changed(getApplication());
             } catch (RuntimeException error) {
                 android.util.Log.e("TaskViewModel", "Không nhập được danh sách cũ", error);
                 writeError.postValue(true);
