@@ -159,7 +159,7 @@ public class WorkspaceController {
         entry.longestStreak = remote.longestStreak;
         entry.completedDays = remote.completedDays;
         entry.scheduledDays = remote.scheduledDays;
-        entry.completionRate = remote.completionRate;
+        entry.completionRate = LocalStore.safeCompletionRate(remote.completionRate);
         entry.reminderEnabled = remote.reminderEnabled;
         entry.reminderTime = remote.reminderTime == null ? "" : remote.reminderTime.substring(0, 5);
         int todayProgress = Math.min(100, remote.actualCountToday * 100 / entry.targetCount);

@@ -68,7 +68,7 @@ public class LocalStore {
                 entry.longestStreak = value.optInt("longestStreak");
                 entry.completedDays = value.optInt("completedDays");
                 entry.scheduledDays = value.optInt("scheduledDays");
-                entry.completionRate = value.optDouble("completionRate");
+                entry.completionRate = safeCompletionRate(value.optDouble("completionRate", 0.0));
                 entry.scheduleConfigured = value.optBoolean("scheduleConfigured");
                 entry.reminderEnabled = value.optBoolean("reminderEnabled");
                 entry.reminderTime = value.optString("reminderTime");
@@ -175,12 +175,18 @@ public class LocalStore {
                         .put("targetCount", entry.targetCount).put("weekdays", entry.weekdays)
                         .put("currentStreak", entry.currentStreak).put("longestStreak", entry.longestStreak)
                         .put("completedDays", entry.completedDays).put("scheduledDays", entry.scheduledDays)
-                        .put("completionRate", entry.completionRate).put("scheduleConfigured", entry.scheduleConfigured)
+                        .put("completionRate", safeCompletionRate(entry.completionRate)).put("scheduleConfigured", entry.scheduleConfigured)
                         .put("reminderEnabled", entry.reminderEnabled).put("reminderTime", entry.reminderTime);
                 array.put(value);
             }
         } catch (JSONException error) { throw new IllegalStateException(error); }
         preferences.edit().putString("entries", array.toString()).apply();
+    }
+
+    /** Old local records may not have this field; never let NaN break JSON persistence. */
+    public static double safeCompletionRate(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) return 0.0;
+        return Math.max(0.0, Math.min(100.0, value));
     }
 
     public List<Reminder> reminders() {
