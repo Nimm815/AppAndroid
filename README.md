@@ -2,7 +2,7 @@
 
 Ứng dụng Android **Java + XML**, thuộc đề tài “Xây dựng hệ thống quản lý công việc cá nhân thông minh sử dụng ReactJS, Spring Boot, FastAPI và kiến trúc Microservices”. Giao diện tham khảo HelloHabit, nội dung bằng tiếng Việt.
 
-Bản hiện tại chạy cục bộ: quản lý công việc, thói quen, nhật ký, lịch, bộ hẹn giờ và báo cáo. **Chưa cần cài MySQL, Node.js, Python hay backend để chạy app.** Đăng nhập, đồng bộ và gợi ý AI thuộc giai đoạn sau.
+Bản Android vẫn chạy cục bộ trước; có thể bật đăng nhập và đồng bộ dữ liệu qua Auth, Task và Productivity Service khi backend/MySQL đang chạy. **Không cần MySQL hay backend để dùng các chức năng cục bộ.** Gợi ý AI chưa được tích hợp vào app.
 
 ## 1. Chuẩn bị
 
@@ -139,22 +139,25 @@ Các file Java nằm trong `android-app/app/src/main/java/vn/edu/taskmanager/`:
 
 Giao diện nằm trong `app/src/main/res/layout/`. Mở XML trong Android Studio, chọn **Split/Design** để xem. Xem thêm [tài liệu Android](android-app/README.md) và [nguyên tắc phát triển](AGENTS.md).
 
-## 7. Dữ liệu và các phần dự kiến
+## 7. Dữ liệu và các dịch vụ
 
-Công việc được lưu bằng Room trong `personal_tasks.db`. Nhật ký, thói quen, sự kiện, danh sách và bộ lọc được lưu cục bộ bằng SharedPreferences. Clone mã nguồn không lấy dữ liệu trên điện thoại của người khác; mỗi thiết bị có dữ liệu riêng.
+App lưu công việc bằng Room trong `personal_tasks.db`; nhật ký, thói quen, sự kiện, lời nhắc và lịch sử ngày được lưu cục bộ bằng SharedPreferences. Khi cấu hình backend, worker đồng bộ công việc/danh sách lên Task Service và dữ liệu năng suất lên Productivity Service; Auth Service xác thực tài khoản. Mất mạng thì dữ liệu cục bộ vẫn được giữ và worker thử lại khi có mạng.
 
-**Không gỡ app hoặc xóa dữ liệu để cập nhật giao diện.** Chạy lại bằng Android Studio để cập nhật khi chữ ký tương thích. Room hiện có migration lên schema 3 để giữ công việc cũ. Nếu thay cấu trúc database, phải bổ sung migration và giữ schema trong Git.
+**Không gỡ app hoặc xóa dữ liệu để cập nhật giao diện.** Chạy lại bằng Android Studio để cập nhật khi chữ ký tương thích. Room có migration qua schema 6 để giữ công việc và danh sách cũ. Nếu thay cấu trúc database, phải bổ sung migration và giữ schema trong Git.
 
-Các thành phần sau chưa có trong repository hiện tại:
+Các service hiện có trong repository:
 
 | Thành phần dự kiến | Vai trò |
 | --- | --- |
-| `backend-spring` | Spring Boot: tài khoản, công việc, quyền và API |
-| `ai-service` | FastAPI: gợi ý thứ tự thực hiện công việc |
-| `admin-web` | ReactJS: quản trị hệ thống |
-| Database máy chủ | Dự kiến MySQL, chưa chốt cấu hình |
+| `backend-spring/auth-service` | Tài khoản, phiên đăng nhập và hồ sơ; MySQL `taskmind_auth_db` |
+| `backend-spring/task-service` | Công việc, danh sách và API; MySQL `taskmind_task_db` |
+| `backend-spring/productivity-service` | Thói quen, nhật ký, lịch, lời nhắc và lịch sử; MySQL `taskmind_productivity_db` |
+| `backend-spring/ai-service` | Service lưu hội thoại AI; MySQL `taskmind_ai_db`; chưa có gợi ý AI nối với app |
+| `admin-web` | Giao diện quản trị ReactJS; gọi API Auth, Task và Productivity theo từng service |
 
-Các dịch vụ sẽ chạy riêng và kết nối qua API. Đặt chung repository không tự kết nối Android với backend. Cách đăng nhập và thuật toán AI chưa chốt; bản hiện tại chưa có nhắc việc bằng thông báo nền.
+Các service chạy riêng và kết nối qua API. Script `backend-spring/tools/Start-TaskMindDev.ps1` chạy Auth, Task và Productivity trên các cổng 8081–8083; AI chưa tham gia luồng app hoặc Admin Web. `task_management_app` và backend đơn khối trong `android-app/backend` / `backend-spring/src/main` còn được giữ để đối chiếu, không được app hiện tại sử dụng. Admin Web gọi API mới; dữ liệu ở database cũ chưa được di chuyển hoặc xóa. Đừng xóa database hoặc chạy dump có `DROP TABLE` trước khi hoàn tất đối chiếu dữ liệu.
+
+Để dùng Admin Web với các database microservices, build các service khi source thay đổi rồi chạy `backend-spring/tools/Start-TaskMindDev.ps1`; script này bật API phát triển trên Auth, Task và Productivity. Sau đó chạy `npm run dev` trong `admin-web`. Admin lấy hồ sơ từ Auth, số công việc từ Task và thống kê lịch sử từ Productivity. Trang quản trị AI và đăng nhập/quyền Admin production chưa được triển khai.
 
 ## 8. Lỗi thường gặp
 

@@ -68,7 +68,7 @@ public class LocalStore {
                 entry.longestStreak = value.optInt("longestStreak");
                 entry.completedDays = value.optInt("completedDays");
                 entry.scheduledDays = value.optInt("scheduledDays");
-                entry.completionRate = value.optDouble("completionRate");
+                entry.completionRate = safeCompletionRate(value.optDouble("completionRate", 0.0));
                 entry.scheduleConfigured = value.optBoolean("scheduleConfigured");
                 entry.reminderEnabled = value.optBoolean("reminderEnabled");
                 entry.reminderTime = value.optString("reminderTime");
@@ -91,6 +91,12 @@ public class LocalStore {
         return null;
     }
     public void save(Entry entry) {
+        save(entry, true);
+    }
+    public void saveFromSync(Entry entry) {
+        save(entry, false);
+    }
+    private void save(Entry entry, boolean notifySync) {
         synchronized (LocalStore.class) {
             List<Entry> all = entries(null);
             if (entry.id == null) {
@@ -100,20 +106,30 @@ public class LocalStore {
             for (int i = all.size() - 1; i >= 0; i--) if (all.get(i).id.equals(entry.id)) all.remove(i);
             all.add(entry);
             write(all);
-            if ("habit".equals(entry.type) && !"server_api".equals(entry.sourceType))
+            if (notifySync && syncable(entry))
                 vn.edu.taskmanager.sync.WorkspaceSync.changed(application);
         }
     }
     public void delete(String id) {
+        delete(id, true);
+    }
+    public void deleteFromSync(String id) {
+        delete(id, false);
+    }
+    private void delete(String id, boolean notifySync) {
         synchronized (LocalStore.class) {
             List<Entry> all = entries(null);
             Entry removed = null;
             for (Entry entry : all) if (entry.id.equals(id)) removed = entry;
             for (int i = all.size() - 1; i >= 0; i--) if (all.get(i).id.equals(id)) all.remove(i);
             write(all);
-            if (removed != null && "habit".equals(removed.type) && !"server_api".equals(removed.sourceType))
+            if (notifySync && removed != null && syncable(removed))
                 vn.edu.taskmanager.sync.WorkspaceSync.changed(application);
         }
+    }
+    private boolean syncable(Entry entry) {
+        return ("habit".equals(entry.type) && !"server_api".equals(entry.sourceType))
+                || "note".equals(entry.type) || "event".equals(entry.type);
     }
     public void checkHabit(Entry entry, String day, boolean checked) {
         synchronized (LocalStore.class) {
@@ -159,12 +175,18 @@ public class LocalStore {
                         .put("targetCount", entry.targetCount).put("weekdays", entry.weekdays)
                         .put("currentStreak", entry.currentStreak).put("longestStreak", entry.longestStreak)
                         .put("completedDays", entry.completedDays).put("scheduledDays", entry.scheduledDays)
-                        .put("completionRate", entry.completionRate).put("scheduleConfigured", entry.scheduleConfigured)
+                        .put("completionRate", safeCompletionRate(entry.completionRate)).put("scheduleConfigured", entry.scheduleConfigured)
                         .put("reminderEnabled", entry.reminderEnabled).put("reminderTime", entry.reminderTime);
                 array.put(value);
             }
         } catch (JSONException error) { throw new IllegalStateException(error); }
         preferences.edit().putString("entries", array.toString()).apply();
+    }
+
+    /** Old local records may not have this field; never let NaN break JSON persistence. */
+    public static double safeCompletionRate(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) return 0.0;
+        return Math.max(0.0, Math.min(100.0, value));
     }
 
     public List<Reminder> reminders() {
@@ -197,6 +219,12 @@ public class LocalStore {
     }
 
     public void saveReminder(Reminder reminder) {
+        saveReminder(reminder, true);
+    }
+    public void saveReminderFromSync(Reminder reminder) {
+        saveReminder(reminder, false);
+    }
+    private void saveReminder(Reminder reminder, boolean notifySync) {
         synchronized (LocalStore.class) {
             List<Reminder> all = reminders();
             if (reminder.id == null || reminder.id.isEmpty()) {
@@ -208,11 +236,17 @@ public class LocalStore {
                 }
             }
             all.add(reminder);
-            writeReminders(all);
+            writeReminders(all, notifySync);
         }
     }
 
     public void deleteReminder(String id) {
+        deleteReminder(id, true);
+    }
+    public void deleteReminderFromSync(String id) {
+        deleteReminder(id, false);
+    }
+    private void deleteReminder(String id, boolean notifySync) {
         if (id == null) return;
         synchronized (LocalStore.class) {
             List<Reminder> all = reminders();
@@ -221,7 +255,7 @@ public class LocalStore {
                     all.remove(i);
                 }
             }
-            writeReminders(all);
+            writeReminders(all, notifySync);
         }
     }
 
@@ -234,15 +268,22 @@ public class LocalStore {
                     all.remove(i);
                 }
             }
-            writeReminders(all);
+            writeReminders(all, true);
         }
     }
 
     public void writeReminders(List<Reminder> all) {
+        writeReminders(all, true);
+    }
+    private void writeReminders(List<Reminder> all, boolean notifySync) {
         JSONArray array = new JSONArray();
         for (Reminder r : all) {
             array.put(r.toJson());
         }
-        preferences.edit().putString("reminders", array.toString()).apply();
+        String value = array.toString();
+        if (!value.equals(preferences.getString("reminders", "[]"))) {
+            preferences.edit().putString("reminders", value).apply();
+            if (notifySync) vn.edu.taskmanager.sync.WorkspaceSync.changed(application);
+        }
     }
 }

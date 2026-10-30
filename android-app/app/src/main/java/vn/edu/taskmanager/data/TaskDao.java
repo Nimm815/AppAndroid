@@ -20,6 +20,9 @@ public interface TaskDao {
     @Insert
     long insert(Task task);
 
+    @Insert(onConflict = androidx.room.OnConflictStrategy.IGNORE)
+    long insertFromSync(Task task);
+
     @Query("UPDATE tasks SET title = :title WHERE id = :id")
     void rename(long id, String title);
     @Query("UPDATE tasks SET title = :title, scheduledDate = :date WHERE id = :id")

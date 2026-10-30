@@ -14,10 +14,12 @@ public interface TaskListDao {
 
     @Query("SELECT * FROM task_lists WHERE id = :id") TaskList find(String id);
     @Insert void insert(TaskList list);
+    @Insert(onConflict = OnConflictStrategy.IGNORE) void insertFromSync(TaskList list);
     @Query("UPDATE task_lists SET title = :title WHERE id = :id") void rename(String id, String title);
     @Query("DELETE FROM task_lists WHERE id = :id") void delete(String id);
     @Query("DELETE FROM task_list_members WHERE listId = :id") void clearMembers(String id);
     @Query("DELETE FROM task_list_members WHERE taskId = :taskId") void removeTaskMembership(long taskId);
+    @Query("SELECT COUNT(*) FROM task_list_members WHERE taskId = :taskId") int membershipCount(long taskId);
     @Insert void insertMember(TaskListMember member);
 
     /** Chuyển việc trong một transaction; lỗi ở đích sẽ giữ nguyên danh sách cũ. */

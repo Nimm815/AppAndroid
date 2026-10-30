@@ -16,7 +16,9 @@ public class DailyHistory {
         public boolean bookmarked;
     }
     private final SharedPreferences preferences;
+    private final Context application;
     public DailyHistory(Context context) {
+        application = context.getApplicationContext();
         preferences = context.getSharedPreferences(vn.edu.taskmanager.auth.Session.storage(context,"daily_activity_history"), Context.MODE_PRIVATE);
     }
     public List<Row> rows() {
@@ -34,6 +36,14 @@ public class DailyHistory {
         } catch (JSONException error) { throw new IllegalStateException("Không đọc được lịch sử hằng ngày", error); }
         return rows;
     }
+    public void mergeFromSync(List<Row> remoteRows) {
+        synchronized (DailyHistory.class) {
+            Map<String, Row> merged = new LinkedHashMap<>();
+            for (Row row : rows()) merged.put(row.key, row);
+            for (Row row : remoteRows) if (!merged.containsKey(row.key)) merged.put(row.key, row);
+            write(new ArrayList<>(merged.values()), false);
+        }
+    }
     public void sync(List<Task> tasks, List<LocalStore.Entry> habits, String today) {
         synchronized (DailyHistory.class) { write(reconcile(rows(), tasks, habits, today)); }
     }
@@ -48,6 +58,8 @@ public class DailyHistory {
                     task.note, task.completed ? 100 : task.progress, today);
         }
         for (LocalStore.Entry habit : habits) {
+            // API-managed habits already have authoritative server check-ins; do not infer zeroes locally.
+            if ("server_api".equals(habit.sourceType)) continue;
             if (habit.created == null || habit.created.isEmpty() || habit.created.compareTo(today) > 0) continue;
             try {
                 SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
@@ -114,6 +126,9 @@ public class DailyHistory {
         }
     }
     private void write(List<Row> rows) {
+        write(rows, true);
+    }
+    private void write(List<Row> rows, boolean notifySync) {
         JSONArray data = new JSONArray();
         try {
             for (Row row : rows) data.put(new JSONObject().put("key", row.key).put("date", row.date)
@@ -121,6 +136,9 @@ public class DailyHistory {
                     .put("note", row.note).put("progress", row.progress).put("bookmarked", row.bookmarked));
         } catch (JSONException error) { throw new IllegalStateException(error); }
         String value = data.toString();
-        if (!value.equals(preferences.getString("rows", "[]"))) preferences.edit().putString("rows", value).apply();
+        if (!value.equals(preferences.getString("rows", "[]"))) {
+            preferences.edit().putString("rows", value).apply();
+            if (notifySync) vn.edu.taskmanager.sync.WorkspaceSync.changed(application);
+        }
     }
 }

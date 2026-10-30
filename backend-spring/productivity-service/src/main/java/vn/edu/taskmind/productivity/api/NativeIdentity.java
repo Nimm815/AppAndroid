@@ -25,7 +25,9 @@ public class NativeIdentity {
  }
  public int id(){
   var request=((ServletRequestAttributes)RequestContextHolder.currentRequestAttributes()).getRequest();
-  if(localWorkspace && (request.getRequestURI().equals("/api/habits")||request.getRequestURI().startsWith("/api/habits/"))
+  boolean localApi=request.getRequestURI().startsWith("/api/native-workspace/")
+      || request.getRequestURI().equals("/api/habits")||request.getRequestURI().startsWith("/api/habits/");
+  if(localWorkspace && request.getHeader("Authorization")==null && localApi
       && "127.0.0.1".equals(request.getRemoteAddr())) return localUserId;
   Object cached=request.getAttribute("native.auth.user");if(cached instanceof Integer id)return id;
   String bearer=request.getHeader("Authorization");

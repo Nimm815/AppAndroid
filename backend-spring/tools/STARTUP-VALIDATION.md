@@ -1,4 +1,4 @@
-> Cập nhật luồng đăng nhập: [Hướng dẫn hiện hành](../../android-app/LOGIN_AUTOSAVE.md). Không còn bước nhập máy chủ trong Android. Auth V2 thêm phiên đăng nhập; mọi API dữ liệu cần bearer token thật. Script Update-DevelopmentBackend cập nhật cả Auth/Task/Productivity. Các hướng dẫn tài khoản cố định hoặc cấu hình URL trong app bên dưới là lịch sử.
+> Hướng dẫn hiện hành về đăng nhập và đồng bộ: [README Android](../../android-app/README.md). Bản ghi kiểm tra bên dưới là lịch sử, không phải kết quả xác minh mã nguồn hiện tại.
 
 # Kết quả chẩn đoán và kiểm thử ngày 22/10/2026
 

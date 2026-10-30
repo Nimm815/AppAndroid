@@ -7,10 +7,12 @@ import {
 } from 'lucide-react'
 import { ActivityPage, HelpPage, SettingsPage } from './AdminPages.jsx'
 
-const ADMIN_API = import.meta.env.VITE_ADMIN_API_URL || 'http://localhost:8082/api/admin'
+const AUTH_ADMIN_API = import.meta.env.VITE_AUTH_ADMIN_API_URL || 'http://localhost:8081/api/admin'
+const TASK_ADMIN_API = import.meta.env.VITE_TASK_ADMIN_API_URL || 'http://localhost:8082/api/admin'
+const PRODUCTIVITY_ADMIN_API = import.meta.env.VITE_PRODUCTIVITY_ADMIN_API_URL || 'http://localhost:8083/api/admin'
 const avatarColors = ['lavender', 'mint', 'peach', 'blue', 'pink', 'sand']
 
-function mapUser(user) {
+function mapUser(user, taskCounts = {}, activitySummary = {}) {
   const nameParts = user.fullName.trim().split(/\s+/)
   const statusNames = { ACTIVE: 'Hoạt động', LOCKED: 'Bị khóa', DELETED: 'Đã xóa' }
   return {
@@ -22,13 +24,13 @@ function mapUser(user) {
     role: user.role === 'ADMIN' ? 'Quản trị viên' : 'Người dùng',
     status: statusNames[user.status] || user.status,
     joined: user.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
-    tasks: user.taskCount,
-    last: user.lastActivityAt ? new Date(user.lastActivityAt).toLocaleString('vi-VN') : 'Chưa ghi nhận',
+    tasks: taskCounts[user.id] ?? user.taskCount ?? 0,
+    last: activitySummary[user.id] ? new Date(activitySummary[user.id]).toLocaleDateString('vi-VN') : 'Chưa ghi nhận',
   }
 }
 
-async function apiRequest(path, options = {}) {
-  const response = await fetch(`${ADMIN_API}${path}`, {
+async function apiRequest(baseUrl, path, options = {}) {
+  const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...options.headers },
   })
@@ -66,14 +68,18 @@ export default function App() {
       setLoading(true)
       try {
         const params = new URLSearchParams({ search: query, status: backendStatus, role: backendRole, page: String(tablePage), size: '6' })
-        const [userPage, dashboard] = await Promise.all([
-          apiRequest(`/users?${params}`),
-          apiRequest('/stats'),
+        const [userPage, dashboard, taskDashboard, taskCounts, productivityDashboard, activitySummary] = await Promise.all([
+          apiRequest(AUTH_ADMIN_API, `/users?${params}`),
+          apiRequest(AUTH_ADMIN_API, '/stats'),
+          apiRequest(TASK_ADMIN_API, '/stats'),
+          apiRequest(TASK_ADMIN_API, '/user-task-counts'),
+          apiRequest(PRODUCTIVITY_ADMIN_API, '/stats'),
+          apiRequest(PRODUCTIVITY_ADMIN_API, '/user-activity-summary'),
         ])
         if (!cancelled) {
-          setUsers(userPage.content.map(mapUser))
+          setUsers(userPage.content.map(user => mapUser(user, taskCounts, activitySummary)))
           setTotalUsers(userPage.totalElements)
-          setStats(dashboard)
+          setStats({ ...dashboard, ...taskDashboard, ...productivityDashboard })
           setApiError('')
         }
       } catch (error) {
@@ -95,7 +101,7 @@ export default function App() {
   const changeStatus = async (user) => {
     const locked = user.status !== 'Bị khóa'
     try {
-      await apiRequest(`/users/${user.id}/lock`, { method: 'PATCH', body: JSON.stringify({ locked }) })
+      await apiRequest(AUTH_ADMIN_API, `/users/${user.id}/lock`, { method: 'PATCH', body: JSON.stringify({ locked }) })
       setMenuId(null)
       refreshData()
       notify(`${locked ? 'Đã khóa' : 'Đã mở khóa'} tài khoản ${user.name}`)
@@ -110,7 +116,7 @@ export default function App() {
       return
     }
     try {
-      await apiRequest(`/users/${editing.id}`, {
+      await apiRequest(AUTH_ADMIN_API, `/users/${editing.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ fullName: form.name, role: form.role === 'Quản trị viên' ? 'ADMIN' : 'USER' }),
       })
@@ -121,7 +127,7 @@ export default function App() {
   }
   const softDelete = async (user) => {
     try {
-      await apiRequest(`/users/${user.id}`, { method: 'DELETE' })
+      await apiRequest(AUTH_ADMIN_API, `/users/${user.id}`, { method: 'DELETE' })
       setMenuId(null)
       refreshData()
       notify(`Đã chuyển ${user.name} vào danh sách đã xóa`)
@@ -161,7 +167,7 @@ export default function App() {
       <div className="content">
         <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line"/> THỨ NĂM, 22 THÁNG 10, 2026</div><h1>{({ 'Tổng quan': 'Tổng quan hệ thống', 'Người dùng': 'Quản lý người dùng' })[page] || page}<span className="wave">{page === 'Tổng quan' ? '✦' : ''}</span></h1><p>{{ 'Tổng quan': 'Chào buổi sáng! Đây là tình hình TaskMind hiện tại.', 'Người dùng': 'Tìm kiếm, lọc và quản lý tài khoản trong hệ thống.', 'Hoạt động': 'Theo dõi các thao tác quản trị được backend ghi nhận.', 'Cài đặt': 'Thông tin và tùy chọn dành cho quản trị viên.', 'Trung tâm trợ giúp': 'Hướng dẫn sử dụng các chức năng hiện có.' }[page]}</p></div><div className="heading-buttons">{page === 'Người dùng' ? <button className="button button-primary" onClick={openCreate}><Plus size={17}/> Thêm người dùng</button> : page === 'Tổng quan' ? <button className="button button-light" onClick={() => notify('Xuất báo cáo sẽ được bổ sung sau')}><Download size={16}/> Xuất báo cáo</button> : null}</div></div>
 
-        {apiError && <div className="api-error"><strong>Chưa lấy được dữ liệu từ Spring Boot.</strong> {apiError} <button onClick={refreshData}>Thử kết nối lại</button></div>}
+        {apiError && <div className="api-error"><strong>Chưa lấy được dữ liệu từ các microservice.</strong> {apiError} <button onClick={refreshData}>Thử kết nối lại</button></div>}
         {page === 'Tổng quan' && <>
         <section className="stats-grid">
           <StatCard icon={<Users size={18}/>} label="Tổng người dùng" value={(stats?.totalUsers ?? 0).toLocaleString('vi-VN')} change="Tổng" note="chưa xóa mềm" trend="up" tone="violet" spark={[22,32,25,39,28,46,38,55,42,62,51,72]} />
@@ -171,7 +177,7 @@ export default function App() {
         </section>
 
         <section className="analytics-grid">
-          <div className="panel activity-panel"><div className="panel-heading"><div><div className="panel-title">Tổng quan hoạt động</div><div className="panel-subtitle">Lượt thao tác được ghi trong 30 ngày qua</div></div><button className="select-button" onClick={refreshData}>Làm mới <ChevronDown size={15}/></button></div><div className="activity-summary"><strong>{(stats?.activityCount30Days ?? 0).toLocaleString('vi-VN')}</strong><span className="trend-pill"><Activity size={13}/> 30 ngày</span><small>tổng lượt thao tác</small></div><div className="chart"><div className="chart-y"><span>{maxActivity}</span><span>{Math.round(maxActivity * .75)}</span><span>{Math.round(maxActivity * .5)}</span><span>{Math.round(maxActivity * .25)}</span><span>0</span></div><div className="chart-main"><div className="grid-lines"><i/><i/><i/><i/><i/></div><div className="bars">{chartBars.map((point, i) => <div key={point.date} className={`bar ${i >= chartBars.length - 5 ? 'bar-highlight' : ''}`} style={{ height: `${point.height}%` }} title={`${point.date}: ${point.count} lượt`}/>)}</div><div className="chart-x"><span>30 ngày trước</span><span>Hoạt động theo ngày</span><span>Hôm nay</span></div></div></div></div>
+          <div className="panel activity-panel"><div className="panel-heading"><div><div className="panel-title">Lịch sử công việc và thói quen</div><div className="panel-subtitle">Bản ghi hằng ngày đã đồng bộ vào Productivity DB trong 30 ngày qua</div></div><button className="select-button" onClick={refreshData}>Làm mới <ChevronDown size={15}/></button></div><div className="activity-summary"><strong>{(stats?.activityCount30Days ?? 0).toLocaleString('vi-VN')}</strong><span className="trend-pill"><Activity size={13}/> 30 ngày</span><small>bản ghi lịch sử</small></div><div className="chart"><div className="chart-y"><span>{maxActivity}</span><span>{Math.round(maxActivity * .75)}</span><span>{Math.round(maxActivity * .5)}</span><span>{Math.round(maxActivity * .25)}</span><span>0</span></div><div className="chart-main"><div className="grid-lines"><i/><i/><i/><i/><i/></div><div className="bars">{chartBars.map((point, i) => <div key={point.date} className={`bar ${i >= chartBars.length - 5 ? 'bar-highlight' : ''}`} style={{ height: `${point.height}%` }} title={`${point.date}: ${point.count} bản ghi`}/>)}</div><div className="chart-x"><span>30 ngày trước</span><span>Bản ghi theo ngày</span><span>Hôm nay</span></div></div></div></div>
           <div className="panel distribution-panel"><div className="panel-heading"><div><div className="panel-title">Phân bố người dùng</div><div className="panel-subtitle">Theo trạng thái tài khoản</div></div><button className="icon-button dots" aria-label="Tùy chọn"><Ellipsis size={19}/></button></div><div className="donut-wrap"><div className="donut" style={{ background: `conic-gradient(#7567e9 0 ${enabledShare}%, #f3b86d ${enabledShare}% 100%)` }}><div className="donut-center"><strong>{accountTotal.toLocaleString('vi-VN')}</strong><small>Tài khoản chưa xóa</small></div></div></div><div className="legend two-legend"><div><i className="legend-dot dot-active"/><span>Đang mở</span><strong>{stats?.enabledUsers ?? 0}</strong><small>{enabledShare}%</small></div><div><i className="legend-dot dot-locked"/><span>Bị khóa</span><strong>{stats?.disabledUsers ?? 0}</strong><small>{lockedShare}%</small></div></div></div>
         </section>
         </>}

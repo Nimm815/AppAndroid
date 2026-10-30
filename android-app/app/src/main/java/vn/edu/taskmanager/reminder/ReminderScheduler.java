@@ -45,6 +45,15 @@ public class ReminderScheduler {
      * Lên lịch báo thức cho một Reminder.
      */
     public static void schedule(Context context, Reminder reminder) {
+        schedule(context, reminder, true);
+    }
+
+    /** Rebuild the OS alarm from an imported workspace without marking that import as a user edit. */
+    public static void scheduleFromSync(Context context, Reminder reminder) {
+        schedule(context, reminder, false);
+    }
+
+    private static void schedule(Context context, Reminder reminder, boolean persist) {
         if (!reminder.isEnabled) {
             cancel(context, reminder);
             return;
@@ -54,8 +63,7 @@ public class ReminderScheduler {
         long nextTrigger = reminder.calculateNextTrigger(now);
         reminder.nextTriggerMillis = nextTrigger;
 
-        LocalStore store = new LocalStore(context);
-        store.saveReminder(reminder);
+        if (persist) new LocalStore(context).saveReminder(reminder);
 
         if (nextTrigger <= now) {
             cancel(context, reminder);

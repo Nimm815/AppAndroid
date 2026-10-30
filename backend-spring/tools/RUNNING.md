@@ -1,6 +1,6 @@
-> Cập nhật luồng đăng nhập: [Hướng dẫn hiện hành](../../android-app/LOGIN_AUTOSAVE.md). Không còn bước nhập máy chủ trong Android. Auth V2 thêm phiên đăng nhập; mọi API dữ liệu cần bearer token thật. Script Update-DevelopmentBackend cập nhật cả Auth/Task/Productivity. Các hướng dẫn tài khoản cố định hoặc cấu hình URL trong app bên dưới là lịch sử.
+> Hướng dẫn hiện hành về Android và backend: [README Android](../../android-app/README.md). Đăng nhập dùng Auth Service; bản chụp dữ liệu công việc và năng suất đi qua Task/Productivity. Các hướng dẫn tài khoản cố định hoặc cấu hình URL trong app bên dưới là lịch sử.
 
-> Hướng dẫn hiện hành: [Lưu từ giao diện Android gốc](../../android-app/NATIVE_WORKSPACE_SYNC.md). Đã gỡ màn hình MySQL riêng. Cần Task V3 / Productivity V4 và profile dev. Hướng dẫn màn hình riêng bên dưới là lịch sử, không còn áp dụng.
+> Hướng dẫn hiện hành: [Đồng bộ backend microservices trong Android](../../android-app/README.md#đồng-bộ-với-backend-microservices). Cần Auth/Task/Productivity đang chạy, migration Task V4 / Productivity V6 và profile `dev`. AI chưa tham gia luồng app. Hướng dẫn màn hình MySQL riêng bên dưới là lịch sử, không còn áp dụng.
 
 > Sửa trường hợp app chưa lưu MySQL: chạy .\tools\Update-DevelopmentBackend.ps1 từ backend-spring.
 > Script tái sử dụng biến môi trường hoặc hỏi mật khẩu ẩn, build Task/Productivity, dừng đúng hai service được quản lý,
@@ -8,7 +8,7 @@
 > Android: cấu hình kết nối một lần, sau đó thao tác ngay trên giao diện gốc.
 > Thay đổi công việc và thói quen tự gửi MySQL; mất mạng sẽ giữ cục bộ và thử lại.
 > Start-AllServices hiện chạy từ bản sao JAR theo SHA256 để build mới không thay JAR của tiến trình đang chạy.
-> Cập nhật 23/10/2026: Task/Habit REST API và màn hình Android dùng MySQL đã được bổ sung. Xem [hướng dẫn triển khai mới](../../android-app/TASK_HABIT_IMPLEMENTATION.md). API cần profile dev và migration Task V2 / Productivity V3. Các ghi chú bên dưới về chưa có controller mô tả giai đoạn cơ sở dữ liệu trước đó.
+> Cập nhật 30/10/2026: Android đồng bộ bản chụp dữ liệu công việc lên Task Service và dữ liệu năng suất lên Productivity Service. Xem hướng dẫn đồng bộ ở README Android. Các ghi chú bên dưới về cấu hình endpoint riêng mô tả giai đoạn trước đó.
 
 # Chạy backend trên Windows
 

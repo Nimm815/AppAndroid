@@ -38,7 +38,8 @@ public class AuthController {
  private Map<String,Object> issue(int id,String email){
   byte[] bytes=new byte[32];RANDOM.nextBytes(bytes);String token=Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
   db.update("INSERT INTO auth_sessions(TokenHash,UserID,ExpiresAt) VALUES (?,?,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 DAY))",digest(token),id);
-  return Map.of("token",token,"userId",id,"email",email,"expiresIn",2592000);
+  String fullName=db.queryForObject("SELECT FullName FROM users WHERE UserID=?",String.class,id);
+  return Map.of("token",token,"userId",id,"email",email,"fullName",fullName,"expiresIn",2592000);
  }
  @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED) @Transactional
  public Map<String,Object> register(@RequestBody Credentials c){
