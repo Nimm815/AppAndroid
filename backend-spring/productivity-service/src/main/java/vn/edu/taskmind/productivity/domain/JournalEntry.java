@@ -1,9 +1,7 @@
 package vn.edu.taskmind.productivity.domain;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "journalentries")
@@ -25,6 +23,25 @@ public class JournalEntry {
     @Column(name = "EntryDate", nullable = false, columnDefinition = "datetime")
     private LocalDateTime entryDate;
 
+    @Column(name = "IsPinned", nullable = false, columnDefinition = "tinyint(1)")
+    private Boolean pinned = false;
+
+    @Column(name = "CreatedAt", nullable = false, columnDefinition = "datetime")
+    private LocalDateTime createdAt;
+
+    @Column(name = "UpdatedAt", nullable = false, columnDefinition = "datetime")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() { updatedAt = LocalDateTime.now(); }
+
     public JournalEntry() { }
 
     public Long getEntryId() { return entryId; }
@@ -37,4 +54,8 @@ public class JournalEntry {
     public void setContent(String content) { this.content = content; }
     public LocalDateTime getEntryDate() { return entryDate; }
     public void setEntryDate(LocalDateTime entryDate) { this.entryDate = entryDate; }
+    public Boolean getPinned() { return pinned; }
+    public void setPinned(Boolean value) { pinned = value; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

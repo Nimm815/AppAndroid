@@ -1,9 +1,7 @@
 package vn.edu.taskmind.task.domain;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "tasks")
@@ -19,10 +17,10 @@ public class Task {
     @Column(name = "Title", nullable = false, length = 200)
     private String title;
 
-    @Column(name = "Priority", nullable = false, length = 20)
+    @Column(name = "Priority", nullable = false, length = 20, columnDefinition = "enum('LOW','MEDIUM','HIGH','URGENT')")
     private String priority;
 
-    @Column(name = "Status", nullable = false, length = 20)
+    @Column(name = "Status", nullable = false, length = 20, columnDefinition = "enum('TODO','IN_PROGRESS','COMPLETED','CANCELLED')")
     private String status;
 
     @Column(name = "Progress", nullable = false)
@@ -56,10 +54,6 @@ public class Task {
     private String description;
     public String getDescription() { return description; }
     public void setDescription(String value) { description=value; }
-    @Column(name="Notes", columnDefinition="text")
-    private String notes;
-    public String getNotes() { return notes; }
-    public void setNotes(String value) { notes=value; }
     @Column(name="StartDate", columnDefinition="datetime")
     private LocalDateTime startDate;
     public LocalDateTime getStartDate() { return startDate; }

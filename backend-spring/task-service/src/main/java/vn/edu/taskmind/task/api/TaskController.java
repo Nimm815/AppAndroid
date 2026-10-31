@@ -19,6 +19,7 @@ public class TaskController {
     @PostMapping("/tasks") @ResponseStatus(HttpStatus.CREATED) public TaskView create(@Valid @RequestBody TaskInput body){return service.save(null,body);}
     @PutMapping("/tasks/{id}") public TaskView update(@PathVariable int id,@Valid @RequestBody TaskInput body){return service.save(id,body);}
     @PatchMapping("/tasks/{id}/completion") public TaskView complete(@PathVariable int id,@Valid @RequestBody Completion body){return service.complete(id,body.completed());}
+    @PatchMapping("/tasks/{id}/progress") public TaskView progress(@PathVariable int id,@Valid @RequestBody Progress body){return service.progress(id,body.progress());}
     @PutMapping("/tasks/{id}/list") public TaskView move(@PathVariable int id,@Valid @RequestBody Move body){return service.move(id,body.listId());}
     @DeleteMapping("/tasks/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void delete(@PathVariable int id){service.delete(id);}
 }

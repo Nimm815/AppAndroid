@@ -62,9 +62,6 @@ public class AdminController {
         }
         String normalizedRole = role.toUpperCase(Locale.ROOT);
         if (!normalizedRole.equals("ALL")) {
-            if (!normalizedRole.equals("USER") && !normalizedRole.equals("ADMIN")) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bộ lọc vai trò không hợp lệ.");
-            }
             where.append(" AND Role=?");
             parameters.add(normalizedRole);
         }
@@ -85,9 +82,6 @@ public class AdminController {
         if (body.fullName() != null && (body.fullName().isBlank() || body.fullName().length() > 100)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Họ tên không hợp lệ.");
         }
-        if (body.role() != null && !body.role().equals("USER") && !body.role().equals("ADMIN")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vai trò phải là USER hoặc ADMIN.");
-        }
         database.update("UPDATE users SET FullName=COALESCE(?,FullName),Role=COALESCE(?,Role),UpdatedAt=UTC_TIMESTAMP() "
                 + "WHERE UserID=? AND IsDeleted=0", body.fullName(), body.role(), id);
         return find(id);
@@ -99,18 +93,15 @@ public class AdminController {
         requireLocal(request);
         database.update("UPDATE users SET IsLocked=?,UpdatedAt=UTC_TIMESTAMP() WHERE UserID=? AND IsDeleted=0",
                 body.locked(), id);
-        if (body.locked()) database.update("DELETE FROM auth_sessions WHERE UserID=?", id);
         return find(id);
     }
 
     @DeleteMapping("/users/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Transactional
     public void delete(@PathVariable int id, HttpServletRequest request) {
         requireLocal(request);
         int changed = database.update("UPDATE users SET IsDeleted=1,UpdatedAt=UTC_TIMESTAMP() WHERE UserID=? AND IsDeleted=0", id);
         if (changed == 0) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng.");
-        database.update("DELETE FROM auth_sessions WHERE UserID=?", id);
     }
 
     @GetMapping("/stats")

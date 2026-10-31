@@ -15,6 +15,6 @@ public class HabitController {
  @PostMapping @ResponseStatus(HttpStatus.CREATED) public View create(@Valid @RequestBody Input body){return service.save(null,body);}
  @PutMapping("/{id}") public View update(@PathVariable int id,@Valid @RequestBody Input body){return service.save(id,body);}
  @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void delete(@PathVariable int id){service.delete(id);}
- @PutMapping("/{id}/check-ins/{date}") public View check(@PathVariable int id,@PathVariable LocalDate date,@Valid @RequestBody CheckIn body){return service.check(id,date,body.completed(),body.actualCount());}
+ @PutMapping("/{id}/check-ins/{date}") public View check(@PathVariable int id,@PathVariable LocalDate date,@Valid @RequestBody CheckIn body){return service.check(id,date,body.completed(),body.actualCount(),body.note());}
  @GetMapping("/{id}/history") public List<Day> history(@PathVariable int id,@RequestParam LocalDate from,@RequestParam LocalDate to){return service.history(id,from,to);}
 }

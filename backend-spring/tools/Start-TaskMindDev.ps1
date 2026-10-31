@@ -121,7 +121,6 @@ function Stop-StaleManagedServices {
             $isDevelopmentApi = $commandLine.Contains('--server.address=127.0.0.1')
         } else {
             $isDevelopmentApi = $commandLine.Contains('--spring.profiles.active=dev') -and
-                $commandLine.Contains('--taskmind.local-workspace=true') -and
                 $commandLine.Contains('--server.address=127.0.0.1')
         }
 
@@ -282,6 +281,7 @@ try {
     Stop-StaleManagedServices
     $servicesAttempted = $true
     & (Join-Path $toolsRoot 'Start-AllServices.ps1') -Services @('auth','task','productivity') -DevelopmentApi -NoPrompt
+    if ($LASTEXITCODE -ne 0) { throw 'Không khởi động được đủ Auth, Task và Productivity.' }
 
     $checkResults = @(& (Join-Path $toolsRoot 'Check-Services.ps1'))
     foreach ($serviceName in @('auth','task','productivity')) {
@@ -293,8 +293,8 @@ try {
     }
 
     Test-BackendApi 'Auth Service' 8081 '/api/users/me' 401
-    Test-BackendApi 'Task Service' 8082 "/api/native-workspace/$([guid]::NewGuid())" 404 'Chưa có dữ liệu thiết bị'
-    Test-BackendApi 'Productivity Service' 8083 '/api/habits'
+    Test-BackendApi 'Task Service' 8082 '/api/tasks' 401
+    Test-BackendApi 'Productivity Service' 8083 '/api/habits' 401
     Set-AndroidUsbReverse
     Write-Host 'TaskMind Development đã sẵn sàng. Auth, Task và Productivity Service được khởi động; Auth chỉ bind localhost.'
 } catch {

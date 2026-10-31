@@ -6,391 +6,237 @@ import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import java.lang.reflect.Type;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import okhttp3.OkHttpClient;
 import retrofit2.*;
 import retrofit2.http.*;
 import retrofit2.converter.gson.GsonConverterFactory;
+import vn.edu.taskmanager.cloud.CloudModels;
 import vn.edu.taskmanager.data.*;
 
-/** Offline-first sync for the Android workspace, split across Task and Productivity services. */
+/** Đồng bộ dữ liệu hiện có với CRUD API của task-service và productivity-service. */
 public final class WorkspaceSyncWorker extends Worker {
-    interface Api {
-        @GET("api/native-workspace/{device}") Call<Map<String, Object>> read(@Path("device") String device);
-        @PUT("api/native-workspace/{device}") Call<Map<String, Object>> save(
-                @Path("device") String device, @Body Map<String, Object> body);
+    interface TaskApi {
+        @GET("api/lists") Call<List<CloudModels.TaskList>> lists();
+        @POST("api/lists") Call<CloudModels.TaskList> createList(@Body Map<String,Object> body);
+        @PUT("api/lists/{id}") Call<CloudModels.TaskList> updateList(@Path("id") int id,@Body Map<String,Object> body);
+        @DELETE("api/lists/{id}") Call<Void> deleteList(@Path("id") int id);
+        @GET("api/tasks") Call<List<CloudModels.Task>> tasks(@Query("status") String status,@Query("sort") String sort);
+        @POST("api/tasks") Call<CloudModels.Task> createTask(@Body Map<String,Object> body);
+        @PUT("api/tasks/{id}") Call<CloudModels.Task> updateTask(@Path("id") int id,@Body Map<String,Object> body);
+        @DELETE("api/tasks/{id}") Call<Void> deleteTask(@Path("id") int id);
+        @PATCH("api/tasks/{id}/completion") Call<CloudModels.Task> complete(@Path("id") int id,@Body Map<String,Object> body);
+        @PATCH("api/tasks/{id}/progress") Call<CloudModels.Task> progress(@Path("id") int id,@Body Map<String,Object> body);
+    }
+    interface CalendarApi {
+        @GET("api/calendar-events") Call<List<CalendarEvent>> events();
+        @POST("api/calendar-events") Call<CalendarEvent> create(@Body Map<String,Object> body);
+        @PUT("api/calendar-events/{id}") Call<CalendarEvent> update(@Path("id") int id,@Body Map<String,Object> body);
+        @DELETE("api/calendar-events/{id}") Call<Void> delete(@Path("id") int id);
+    }
+    static final class CalendarEvent {
+        int eventId; String title,description,startTime,endTime; Boolean allDay;
     }
 
-    private static final Type MAP_TYPE = new TypeToken<Map<String, Object>>() { }.getType();
     private final Gson gson = new Gson();
-
-    public WorkspaceSyncWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
-        super(context, parameters);
-    }
+    public WorkspaceSyncWorker(@NonNull Context context,@NonNull WorkerParameters parameters){super(context,parameters);}
 
     @NonNull @Override public Result doWork() {
-        Context context = getApplicationContext();
-        SharedPreferences state = WorkspaceSync.state(context);
-        if (!WorkspaceSync.configured(context)) {
-            state.edit().putString("status", "Chưa cấu hình địa chỉ Task và Productivity API trong bản build.").apply();
-            return Result.success();
+        Context context=getApplicationContext();
+        SharedPreferences state=WorkspaceSync.state(context);
+        if(!WorkspaceSync.configured(context)) {
+            state.edit().putString("status","Chưa cấu hình địa chỉ API.").apply(); return Result.success();
         }
-        if (!vn.edu.taskmanager.auth.AccountSession.isLoggedIn(context)) {
-            String status = vn.edu.taskmanager.auth.AccountSession.authenticationRequired(context)
-                    ? "Đăng nhập lại để tiếp tục đồng bộ; mọi dữ liệu vẫn được giữ trên điện thoại."
-                    : "Đăng nhập để đồng bộ lên máy chủ; dữ liệu hiện vẫn được giữ trên điện thoại.";
-            state.edit().putString("status", status).apply();
+        if(!vn.edu.taskmanager.auth.AccountSession.isLoggedIn(context)) {
+            state.edit().putString("status","Đăng nhập để đồng bộ công việc và lịch; dữ liệu cục bộ vẫn được giữ.").apply();
             return Result.success();
         }
         try {
-            String device = WorkspaceSync.device(context);
-            Api taskApi = api(vn.edu.taskmanager.BuildConfig.TASK_URL, context);
-            Api productivityApi = api(vn.edu.taskmanager.BuildConfig.HABIT_URL, context);
-            LegacyTaskListImporter.importOnce(context, TaskDatabase.getInstance(context));
-
-            Map<String, Object> taskSnapshot = taskSnapshot(context);
-            Map<String, Object> productivitySnapshot = productivitySnapshot(context);
-            long revision = state.getLong("revision", 0);
-            long taskAck = state.getLong("task_acknowledged", state.getLong("acknowledged", -1));
-            long productivityAck = state.getLong("productivity_acknowledged", -1);
-
-            Map<String, Object> remoteTask = read(taskApi, device, "Task Service");
-            Map<String, Object> remoteProductivity = read(productivityApi, device, "Productivity Service");
-            long remoteTaskRevision = revision(remoteTask);
-            long remoteProductivityRevision = revision(remoteProductivity);
-
-            boolean pulled = false;
-            if (remoteTask != null && remoteTaskRevision > taskAck) {
-                if (remoteTaskRevision > revision) pulled = true;
-                applyTaskSnapshot(context, payload(remoteTask), false);
-                taskAck = remoteTaskRevision;
-                revision = Math.max(revision, remoteTaskRevision);
-                taskSnapshot = taskSnapshot(context);
-            }
-            if (remoteProductivity != null && remoteProductivityRevision > productivityAck) {
-                if (remoteProductivityRevision > revision) pulled = true;
-                applyProductivitySnapshot(context, payload(remoteProductivity), false);
-                productivityAck = remoteProductivityRevision;
-                revision = Math.max(revision, remoteProductivityRevision);
-                productivitySnapshot = productivitySnapshot(context);
-            }
-            if (pulled) revision = Math.max(revision, Math.max(remoteTaskRevision, remoteProductivityRevision)) + 1;
-            if (revision != state.getLong("revision", 0)) state.edit().putLong("revision", revision).apply();
-            taskSnapshot.put("revision", revision);
-            productivitySnapshot.put("revision", revision);
-
-            if (revision > taskAck) {
-                long saved = save(taskApi, device, taskSnapshot, "Task Service");
-                if (saved != revision) throw new SyncException("Task Service từ chối bản chụp cũ; sẽ tải lại dữ liệu mới nhất.");
-                taskAck = saved;
-                state.edit().putLong("task_acknowledged", taskAck).apply();
-            }
-            if (revision > productivityAck) {
-                long saved = save(productivityApi, device, productivitySnapshot, "Productivity Service");
-                if (saved != revision) throw new SyncException("Productivity Service từ chối bản chụp cũ; sẽ tải lại dữ liệu mới nhất.");
-                productivityAck = saved;
-                state.edit().putLong("productivity_acknowledged", productivityAck).apply();
-            }
-
-            long acknowledged = Math.min(taskAck, productivityAck);
-            state.edit().putLong("acknowledged", acknowledged)
-                    .putString("status", "Đã đồng bộ công việc, thói quen, nhật ký, lịch, nhắc việc và lịch sử ngày lên MySQL.")
-                    .apply();
+            TaskDatabase db=TaskDatabase.getInstance(context);
+            LegacyTaskListImporter.importOnce(context,db);
+            TaskApi tasks=service(vn.edu.taskmanager.BuildConfig.TASK_URL,context).create(TaskApi.class);
+            CalendarApi calendar=service(vn.edu.taskmanager.BuildConfig.HABIT_URL,context).create(CalendarApi.class);
+            syncTasks(context,db,tasks);
+            syncEvents(context,calendar);
+            state.edit().putString("status","Đã đồng bộ công việc, danh sách và sự kiện lịch lên MySQL.").apply();
             return Result.success();
-        } catch (Exception error) {
-            if (isStopped()) return Result.failure();
-            String message = error instanceof SyncException ? error.getMessage()
-                    : "Không thể kết nối hoặc đồng bộ với máy chủ: " + safeMessage(error);
-            state.edit().putString("status", "Chưa đồng bộ MySQL: " + message + ". Dữ liệu cục bộ vẫn được giữ; ứng dụng sẽ thử lại.").apply();
+        } catch(Exception error) {
+            if(isStopped())return Result.failure();
+            String message=error.getMessage()==null?error.getClass().getSimpleName():error.getMessage();
+            state.edit().putString("status","Chưa đồng bộ MySQL: "+message+". Dữ liệu cục bộ vẫn được giữ; ứng dụng sẽ thử lại.").apply();
             return Result.retry();
         }
     }
 
-    private Api api(String baseUrl, Context context) {
-        OkHttpClient client = new OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS).retryOnConnectionFailure(false)
-                .addInterceptor(chain -> {
-                    String token = vn.edu.taskmanager.auth.Session.token(context);
-                    okhttp3.Request.Builder request = chain.request().newBuilder();
-                    if (token != null && !token.isEmpty()) request.header("Authorization", "Bearer " + token);
-                    return chain.proceed(request.build());
-                }).build();
-        return new Retrofit.Builder().baseUrl(baseUrl).client(client)
-                .addConverterFactory(GsonConverterFactory.create()).build().create(Api.class);
+    private Retrofit service(String base,Context context) {
+        OkHttpClient client=new OkHttpClient.Builder().connectTimeout(10,TimeUnit.SECONDS)
+                .readTimeout(30,TimeUnit.SECONDS).writeTimeout(30,TimeUnit.SECONDS)
+                .addInterceptor(chain->{String token=vn.edu.taskmanager.auth.Session.token(context);
+                    okhttp3.Request.Builder request=chain.request().newBuilder();
+                    if(token!=null&&!token.isEmpty())request.header("Authorization","Bearer "+token);
+                    return chain.proceed(request.build());}).build();
+        return new Retrofit.Builder().baseUrl(base).client(client)
+                .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create()).build();
     }
 
-    private Map<String, Object> read(Api api, String device, String name) throws Exception {
-        Response<Map<String, Object>> response = api.read(device).execute();
-        if (response.code() == 404) { if (response.errorBody() != null) response.errorBody().close(); return null; }
-        if (!response.isSuccessful() || response.body() == null) throw failure(name, response);
-        return response.body();
-    }
-
-    private long save(Api api, String device, Map<String, Object> body, String name) throws Exception {
-        Response<Map<String, Object>> response = api.save(device, body).execute();
-        if (!response.isSuccessful() || response.body() == null) throw failure(name, response);
-        Object value = response.body().get("revision");
-        return value instanceof Number ? ((Number) value).longValue() : -1;
-    }
-
-    private SyncException failure(String name, Response<?> response) {
-        String detail = "HTTP " + response.code();
-        if (response.errorBody() != null) {
-            try {
-                String text = response.errorBody().string();
-                Map<String, Object> body = gson.fromJson(text, MAP_TYPE);
-                if (body != null && body.get("message") != null) detail = String.valueOf(body.get("message"));
-            } catch (Exception ignored) { }
-        }
-        return new SyncException(name + ": " + detail);
-    }
-
-    private long revision(Map<String, Object> response) {
-        if (response == null || !(response.get("revision") instanceof Number)) return -1;
-        return ((Number) response.get("revision")).longValue();
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> payload(Map<String, Object> response) {
-        if (response == null) return Collections.emptyMap();
-        Object raw = response.get("payload");
-        if (raw instanceof Map) return (Map<String, Object>) raw;
-        if (raw instanceof String && !((String) raw).isBlank()) {
-            Map<String, Object> parsed = gson.fromJson((String) raw, MAP_TYPE);
-            return parsed == null ? Collections.emptyMap() : parsed;
-        }
-        return Collections.emptyMap();
-    }
-
-    private Map<String, Object> taskSnapshot(Context context) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        List<Map<String, Object>> tasks = new ArrayList<>(), lists = new ArrayList<>();
-        TaskDatabase db = TaskDatabase.getInstance(context);
-        db.runInTransaction(() -> {
-            for (Task task : db.taskDao().allTasks()) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", String.valueOf(task.id)); item.put("title", task.title);
-                item.put("scheduledDate", task.scheduledDate); item.put("priority", task.priority);
-                item.put("progress", task.progress); item.put("note", task.note); item.put("createdAt", task.createdAt);
-                tasks.add(item);
+    private void syncTasks(Context context,TaskDatabase db,TaskApi api)throws Exception {
+        SharedPreferences state=WorkspaceSync.state(context);
+        Map<String,Integer> listIds=readIds(state,"remote_lists");
+        Map<String,Integer> taskIds=readIds(state,"remote_tasks");
+        List<CloudModels.TaskList> remoteLists=execute(api.lists());
+        Map<Integer,Integer> remoteListToLocal=new HashMap<>();
+        for(CloudModels.TaskList remote:remoteLists) {
+            String localId=findLocalListId(listIds,remote.id);
+            TaskList local=localId==null?null:db.taskListDao().find(localId);
+            if(local==null) local=findListByTitle(db,remote.name);
+            if(local==null) {
+                local=new TaskList(); local.id="server-list-"+remote.id; local.title=remote.name; local.createdAt=System.currentTimeMillis();
+                db.taskListDao().insertFromSync(local);
             }
-            for (TaskListWithTasks list : db.taskListDao().allLists()) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", list.list.id); item.put("title", list.list.title);
-                item.put("createdAt", list.list.createdAt);
-                List<String> members = new ArrayList<>();
-                for (Task task : list.tasks) members.add(String.valueOf(task.id));
-                item.put("members", members); lists.add(item);
-            }
-        });
-        body.put("revision", WorkspaceSync.state(context).getLong("revision", 0));
-        body.put("tasks", tasks); body.put("lists", lists);
-        return body;
-    }
+            listIds.put(local.id,remote.id);
+        }
+        List<TaskListWithTasks> localLists=db.taskListDao().allLists();
+        Set<String> localListKeys=new HashSet<>();
+        Set<Integer> matchedRemoteLists=new HashSet<>(listIds.values());
+        for(TaskListWithTasks row:localLists) {
+            TaskList local=row.list;localListKeys.add(local.id);
+            Integer remoteId=listIds.get(local.id);Map<String,Object> body=new LinkedHashMap<>();
+            body.put("name",local.title);body.put("color","#5B6FDE");
+            if(remoteId==null)for(CloudModels.TaskList candidate:remoteLists)
+                if(!matchedRemoteLists.contains(candidate.id)&&Objects.equals(candidate.name,local.title)){remoteId=candidate.id;break;}
+            CloudModels.TaskList saved=remoteId==null?execute(api.createList(body)):execute(api.updateList(remoteId,body));
+            listIds.put(local.id,saved.id);
+            matchedRemoteLists.add(saved.id);
+        }
+        for(String old:new ArrayList<>(listIds.keySet())) if(!localListKeys.contains(old)) {
+            executeVoid(api.deleteList(listIds.get(old)));listIds.remove(old);
+        }
 
-    private Map<String, Object> productivitySnapshot(Context context) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        LocalStore store = new LocalStore(context);
-        List<Map<String, Object>> habits = new ArrayList<>(), notes = new ArrayList<>(), events = new ArrayList<>();
-        Set<String> apiHabitIds = new HashSet<>();
-        for (LocalStore.Entry entry : store.entries(null)) {
-            if ("habit".equals(entry.type) && !"server_api".equals(entry.sourceType)) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", entry.id); item.put("title", entry.title); item.put("body", entry.body);
-                item.put("created", entry.created == null || entry.created.isBlank() ? LocalStore.today() : entry.created);
-                Map<String, Integer> progress = new LinkedHashMap<>(entry.dailyProgress);
-                for (String completed : entry.days) progress.put(completed, 100);
-                item.put("progress", progress); item.put("icon", entry.icon); item.put("color", entry.color);
-                item.put("weekdays", entry.weekdays); item.put("scheduleConfigured", entry.scheduleConfigured);
-                item.put("targetCount", entry.targetCount); item.put("targetUnit", entry.targetUnit);
-                item.put("reminderEnabled", entry.reminderEnabled); item.put("reminderTime", entry.reminderTime);
-                habits.add(item);
-            } else if ("habit".equals(entry.type) && "server_api".equals(entry.sourceType)) {
-                apiHabitIds.add(entry.id);
-            } else if ("note".equals(entry.type)) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", entry.id); item.put("title", entry.title); item.put("content", entry.body);
-                item.put("entryDate", dateTime(entry.date, entry.time)); item.put("bookmarked", entry.bookmarked);
-                item.put("label", entry.label); item.put("sourceType", entry.sourceType);
-                item.put("sourceLocalId", entry.sourceId); item.put("progress", entry.progress);
-                notes.add(item);
-            } else if ("event".equals(entry.type)) {
-                boolean allDay = "all_day".equals(entry.label) || entry.progress == 1;
-                String start = dateTime(entry.date, allDay ? "00:00" : entry.time);
-                String end = allDay ? dateTime(LocalStore.day(addDays(entry.date, 1)), "00:00")
-                        : dateTime(entry.date, entry.label != null && entry.label.startsWith("end:")
-                                ? entry.label.substring(4) : addMinutes(entry.time, 30));
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", entry.id); item.put("title", entry.title); item.put("description", entry.body);
-                item.put("startTime", start); item.put("endTime", end); item.put("allDay", allDay);
-                item.put("relatedHabitLocalId", "habit".equals(entry.sourceType) ? entry.sourceId : "");
-                events.add(item);
-            }
-        }
-        List<Map<String, Object>> reminders = new ArrayList<>();
-        for (Reminder reminder : store.reminders()) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id", reminder.id); item.put("title", reminder.title); item.put("targetType", reminder.targetType);
-            item.put("targetId", reminder.targetId); item.put("targetName", reminder.targetName);
-            item.put("time", reminder.time); item.put("date", reminder.date); item.put("repeatType", reminder.repeatType);
-            item.put("daysOfWeek", reminder.daysOfWeek); item.put("enabled", reminder.isEnabled);
-            item.put("fromEvent", reminder.isFromEvent); item.put("eventReminderMinutes", reminder.eventReminderMinutes);
-            item.put("nextTriggerMillis", reminder.nextTriggerMillis); item.put("createdAt", reminder.createdAt);
-            reminders.add(item);
-        }
-        List<Map<String, Object>> history = new ArrayList<>();
-        for (DailyHistory.Row row : new DailyHistory(context).rows()) {
-            if ("habit".equals(row.kind) && row.sourceId != null
-                    && (row.sourceId.startsWith("api-habit-") || apiHabitIds.contains(row.sourceId))) continue;
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("key", row.key); item.put("date", row.date); item.put("kind", row.kind);
-            item.put("sourceId", row.sourceId); item.put("title", row.title); item.put("note", row.note);
-            item.put("progress", row.progress); item.put("bookmarked", row.bookmarked); history.add(item);
-        }
-        body.put("revision", WorkspaceSync.state(context).getLong("revision", 0));
-        body.put("habits", habits); body.put("notes", notes); body.put("events", events);
-        body.put("reminders", reminders); body.put("history", history);
-        return body;
-    }
-
-    private void applyTaskSnapshot(Context context, Map<String, Object> payload, boolean replace) {
-        TaskDatabase db = TaskDatabase.getInstance(context);
-        List<Map<String, Object>> tasks = maps(payload.get("tasks"));
-        List<Map<String, Object>> lists = maps(payload.get("lists"));
-        db.runInTransaction(() -> {
-            for (Map<String, Object> value : lists) {
-                String id = string(value.get("id"));
-                if (id.isBlank() || (!replace && db.taskListDao().find(id) != null)) continue;
-                TaskList list = new TaskList(); list.id = id; list.title = string(value.get("title"));
-                list.createdAt = number(value.get("createdAt"), System.currentTimeMillis());
-                db.taskListDao().insertFromSync(list);
-            }
-            for (Map<String, Object> value : tasks) {
-                long id = longValue(value.get("id"), -1);
-                if (id < 1 || (!replace && db.taskDao().findById(id) != null)) continue;
-                Task task = new Task(string(value.get("title"))); task.id = id;
-                task.scheduledDate = string(value.get("scheduledDate")); task.priority = (int) number(value.get("priority"), 2);
-                task.progress = (int) number(value.get("progress"), 0); task.completed = task.progress >= 100;
-                task.note = string(value.get("note")); task.createdAt = number(value.get("createdAt"), System.currentTimeMillis());
-                db.taskDao().insertFromSync(task);
-            }
-            for (Map<String, Object> listValue : lists) {
-                String listId = string(listValue.get("id"));
-                if (db.taskListDao().find(listId) == null) continue;
-                for (Object member : list(listValue.get("members"))) {
-                    long taskId;
-                    try { taskId = Long.parseLong(String.valueOf(member)); }
-                    catch (NumberFormatException ignored) { continue; }
-                    if (db.taskDao().findById(taskId) != null && db.taskListDao().membershipCount(taskId) == 0)
-                        db.taskListDao().addMember(new TaskListMember(listId, taskId));
+        List<CloudModels.Task> remoteTasks=execute(api.tasks("ALL","due"));
+        Map<Integer,CloudModels.Task> byRemoteId=new HashMap<>();
+        for(CloudModels.Task t:remoteTasks)byRemoteId.put(t.id,t);
+        Set<Integer> knownTaskIds=new HashSet<>(taskIds.values());
+        for(CloudModels.Task remote:remoteTasks) {
+            if(knownTaskIds.contains(remote.id))continue;
+            Task local=findMatchingTask(db,remote);
+            if(local==null) {
+                String title=remote.title==null?"":remote.title;
+                local=new Task(title);local.scheduledDate=remote.dueDate==null?"":remote.dueDate.substring(0,10);
+                local.priority=localPriority(remote.priority);local.progress=remote.progress;local.completed=remote.progress>=100;
+                local.note=remote.description==null?"":remote.description;
+                long newId=db.taskDao().insertFromSync(local);if(newId<1)continue;local.id=newId;
+                if(remote.listId!=null)for(CloudModels.TaskList list:remoteLists)if(list.id==remote.listId) {
+                    String localList=findLocalListId(listIds,list.id);
+                    if(localList!=null)db.taskListDao().addMember(new TaskListMember(localList,newId));
                 }
             }
-        });
+            taskIds.put(String.valueOf(local.id),remote.id);knownTaskIds.add(remote.id);
+        }
+        List<Task> localTasks=db.taskDao().allTasks();
+        Set<String> localKeys=new HashSet<>();
+        Set<Integer> matchedRemoteTasks=new HashSet<>(taskIds.values());
+        for(Task local:localTasks) {
+            String key=String.valueOf(local.id);localKeys.add(key);
+            Map<String,Object> body=taskBody(local,db,listIds);
+            Integer remoteId=taskIds.get(key);
+            if(remoteId==null)for(CloudModels.Task candidate:remoteTasks)
+                if(!matchedRemoteTasks.contains(candidate.id)&&Objects.equals(candidate.title,local.title)
+                        &&Objects.equals(candidate.dueDate==null?"":candidate.dueDate.substring(0,10),local.scheduledDate==null?"":local.scheduledDate)){remoteId=candidate.id;break;}
+            CloudModels.Task saved;
+            if(remoteId!=null&&byRemoteId.containsKey(remoteId)) saved=execute(api.updateTask(remoteId,body));
+            else saved=execute(api.createTask(body));
+            taskIds.put(key,saved.id);
+            matchedRemoteTasks.add(saved.id);
+            if(local.progress!=saved.progress) execute(api.progress(saved.id,Collections.singletonMap("progress",local.progress)));
+        }
+        for(String key:new ArrayList<>(taskIds.keySet()))if(!localKeys.contains(key)) {
+            executeVoid(api.deleteTask(taskIds.get(key)));taskIds.remove(key);
+        }
+        state.edit().putString("remote_lists",gson.toJson(listIds)).putString("remote_tasks",gson.toJson(taskIds)).apply();
     }
 
-    private void applyProductivitySnapshot(Context context, Map<String, Object> payload, boolean replace) {
-        LocalStore store = new LocalStore(context);
-        for (Map<String, Object> value : maps(payload.get("habits"))) {
-            String id = string(value.get("id"));
-            if (id.isBlank() || (!replace && store.find(id) != null)) continue;
-            LocalStore.Entry entry = new LocalStore.Entry(); entry.id = id; entry.type = "habit";
-            entry.title = string(value.get("title")); entry.body = string(value.get("body"));
-            entry.created = string(value.get("created")); entry.date = entry.created; entry.icon = stringOr(value.get("icon"), "🌱");
-            entry.color = stringOr(value.get("color"), "#5B6FDE"); entry.weekdays = (int) number(value.get("weekdays"), 127);
-            entry.scheduleConfigured = bool(value.get("scheduleConfigured"), true);
-            entry.targetCount = (int) number(value.get("targetCount"), 1); entry.targetUnit = stringOr(value.get("targetUnit"), "lần");
-            entry.reminderEnabled = bool(value.get("reminderEnabled"), false); entry.reminderTime = string(value.get("reminderTime"));
-            Map<String, Object> progress = object(value.get("progress"));
-            for (Map.Entry<String, Object> day : progress.entrySet()) entry.dailyProgress.put(day.getKey(), (int) number(day.getValue(), 0));
-            for (Map.Entry<String, Integer> day : entry.dailyProgress.entrySet()) if (day.getValue() >= 100) entry.days.add(day.getKey());
-            store.saveFromSync(entry);
-        }
-        for (Map<String, Object> value : maps(payload.get("notes"))) {
-            String id = string(value.get("id"));
-            if (id.isBlank() || (!replace && store.find(id) != null)) continue;
-            LocalStore.Entry entry = new LocalStore.Entry(); entry.id = id; entry.type = "note";
-            entry.title = string(value.get("title")); entry.body = string(value.get("content"));
-            entry.bookmarked = bool(value.get("bookmarked"), false); setDateTime(entry, string(value.get("entryDate")));
-            entry.label = string(value.get("label")); entry.sourceType = string(value.get("sourceType"));
-            entry.sourceId = string(value.get("sourceLocalId")); entry.progress = (int) number(value.get("progress"), -1);
-            store.saveFromSync(entry);
-        }
-        for (Map<String, Object> value : maps(payload.get("events"))) {
-            String id = string(value.get("id"));
-            if (id.isBlank() || (!replace && store.find(id) != null)) continue;
-            LocalStore.Entry entry = new LocalStore.Entry(); entry.id = id; entry.type = "event";
-            entry.title = string(value.get("title")); entry.body = string(value.get("description"));
-            boolean allDay = bool(value.get("allDay"), false); setDateTime(entry, string(value.get("startTime")));
-            entry.label = allDay ? "all_day" : "end:" + string(value.get("endTime")).substring(11, 16);
-            entry.progress = allDay ? 1 : 0;
-            String linkedHabit = string(value.get("relatedHabitLocalId"));
-            if (!linkedHabit.isBlank()) { entry.sourceId = linkedHabit; entry.sourceType = "habit"; }
-            store.saveFromSync(entry);
-        }
-        for (Map<String, Object> value : maps(payload.get("reminders"))) {
-            String id = string(value.get("id"));
-            if (id.isBlank() || (!replace && store.findReminder(id) != null)) continue;
-            try {
-                Reminder reminder = Reminder.fromJson(new org.json.JSONObject(gson.toJson(value)));
-                reminder.isEnabled = bool(value.get("enabled"), reminder.isEnabled);
-                reminder.isFromEvent = bool(value.get("fromEvent"), false);
-                vn.edu.taskmanager.reminder.ReminderScheduler.scheduleFromSync(context, reminder);
-                store.saveReminderFromSync(reminder);
-            } catch (org.json.JSONException ignored) { }
-        }
-        List<DailyHistory.Row> rows = new ArrayList<>();
-        for (Map<String, Object> value : maps(payload.get("history"))) {
-            DailyHistory.Row row = new DailyHistory.Row(); row.key = string(value.get("key"));
-            row.date = string(value.get("date")); row.kind = string(value.get("kind"));
-            row.sourceId = string(value.get("sourceId")); row.title = string(value.get("title"));
-            row.note = string(value.get("note")); row.progress = (int) number(value.get("progress"), 0);
-            row.bookmarked = bool(value.get("bookmarked"), false); if (!row.key.isBlank()) rows.add(row);
-        }
-        new DailyHistory(context).mergeFromSync(rows);
+    private Map<String,Object> taskBody(Task local,TaskDatabase db,Map<String,Integer> lists) {
+        Map<String,Object> body=new LinkedHashMap<>();
+        body.put("title",local.title);body.put("description",local.note==null||local.note.isBlank()?null:local.note);
+        body.put("notes",null);body.put("priority",switch(local.priority){case 1->"URGENT";case 3->"HIGH";case 4->"LOW";default->"MEDIUM";});
+        String date=local.scheduledDate==null? "":local.scheduledDate;
+        if(!date.isBlank()){body.put("startDate",date+"T00:00:00");body.put("dueDate",date+"T23:59:00");}
+        for(TaskListWithTasks row:db.taskListDao().allLists())for(Task t:row.tasks)
+            if(t.id==local.id){Integer listId=lists.get(row.list.id);if(listId!=null)body.put("listId",listId);}
+        return body;
+    }
+    private Task findMatchingTask(TaskDatabase db,CloudModels.Task remote) {
+        String date=remote.dueDate==null?"":remote.dueDate.substring(0,10);
+        for(Task local:db.taskDao().allTasks())
+            if(Objects.equals(local.title,remote.title)&&Objects.equals(local.scheduledDate==null?"":local.scheduledDate,date))return local;
+        return null;
+    }
+    private int localPriority(String value) {
+        if("URGENT".equals(value))return 1;if("HIGH".equals(value))return 3;if("LOW".equals(value))return 4;return 2;
     }
 
-    private void setDateTime(LocalStore.Entry entry, String value) {
-        if (value == null || value.length() < 16) { entry.date = LocalStore.today(); entry.time = "09:00"; return; }
-        entry.date = value.substring(0, 10); entry.time = value.substring(11, 16);
+    private void syncEvents(Context context,CalendarApi api)throws Exception {
+        SharedPreferences state=WorkspaceSync.state(context);
+        Map<String,Integer> ids=readIds(state,"remote_events");
+        List<CalendarEvent> remote=execute(api.events());
+        Map<Integer,CalendarEvent> byId=new HashMap<>();for(CalendarEvent e:remote)byId.put(e.eventId,e);
+        LocalStore store=new LocalStore(context);List<LocalStore.Entry> entries=store.entries("event");
+        Set<Integer> mapped=new HashSet<>(ids.values());
+        for(CalendarEvent value:remote)if(!mapped.contains(value.eventId)) {
+            LocalStore.Entry local=findMatchingEvent(entries,value);
+            if(local==null) {
+                local=new LocalStore.Entry();local.id="server-event-"+value.eventId;local.type="event";
+                local.title=value.title==null?"":value.title;local.body=value.description==null?"":value.description;
+                setEntryDateTime(local,value.startTime);
+                boolean allDay=Boolean.TRUE.equals(value.allDay);
+                local.progress=allDay?1:0;
+                local.label=allDay?"all_day":"end:"+timeOf(value.endTime);
+                store.saveFromSync(local);entries.add(local);
+            }
+            ids.put(local.id,value.eventId);mapped.add(value.eventId);
+        }
+        Set<String> keys=new HashSet<>();
+        for(LocalStore.Entry entry:entries) {
+            if("server_api".equals(entry.sourceType))continue;
+            keys.add(entry.id);Map<String,Object> body=eventBody(entry);
+            Integer id=ids.get(entry.id);CalendarEvent saved;
+            if(id!=null&&byId.containsKey(id))saved=execute(api.update(id,body));else saved=execute(api.create(body));
+            ids.put(entry.id,saved.eventId);
+        }
+        for(String key:new ArrayList<>(ids.keySet()))if(!keys.contains(key)) {
+            executeVoid(api.delete(ids.get(key)));ids.remove(key);
+        }
+        state.edit().putString("remote_events",gson.toJson(ids)).apply();
     }
-    private String dateTime(String date, String time) {
-        String day = date == null || date.isBlank() ? LocalStore.today() : date;
-        String at = time == null || time.length() < 5 ? "09:00" : time.substring(0, 5);
-        return day + "T" + at + ":00";
+    private Map<String,Object> eventBody(LocalStore.Entry e) {
+        boolean allDay="all_day".equals(e.label)||e.progress==1;
+        String start=allDay?e.date+"T00:00:00":e.date+"T"+safeTime(e.time)+":00";
+        String end;
+        if(allDay)end=addDays(e.date,1)+"T00:00:00";
+        else {String time=e.label!=null&&e.label.startsWith("end:")?e.label.substring(4):"";
+            if(time.isBlank())time=addMinutes(safeTime(e.time),30);end=e.date+"T"+time+":00";}
+        Map<String,Object> body=new LinkedHashMap<>();body.put("title",e.title);body.put("description",e.body);
+        body.put("startTime",start);body.put("endTime",end);body.put("allDay",allDay);return body;
     }
-    private Date addDays(String date, int amount) {
-        try { java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.ROOT); format.setLenient(false);
-            Calendar c = Calendar.getInstance(); c.setTime(format.parse(date)); c.add(Calendar.DAY_OF_MONTH, amount); return c.getTime();
-        } catch (Exception e) { return new Date(); }
+    private String safeTime(String value){return value==null||value.length()<5?"09:00":value.substring(0,5);}
+    private String timeOf(String value){return value!=null&&value.length()>=16?value.substring(11,16):"09:30";}
+    private void setEntryDateTime(LocalStore.Entry entry,String value){
+        if(value!=null&&value.length()>=16){entry.date=value.substring(0,10);entry.time=value.substring(11,16);}
+        else {entry.date=LocalStore.today();entry.time="09:00";}
     }
-    private String addMinutes(String time, int amount) {
-        try { String[] parts = time.split(":"); Calendar c = Calendar.getInstance();
-            c.set(Calendar.HOUR_OF_DAY, Integer.parseInt(parts[0])); c.set(Calendar.MINUTE, Integer.parseInt(parts[1]));
-            c.add(Calendar.MINUTE, amount); return String.format(Locale.ROOT, "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));
-        } catch (Exception e) { return "09:30"; }
+    private LocalStore.Entry findMatchingEvent(List<LocalStore.Entry> entries,CalendarEvent remote){
+        String date=remote.startTime!=null&&remote.startTime.length()>=10?remote.startTime.substring(0,10):"";
+        for(LocalStore.Entry local:entries)if(Objects.equals(local.title,remote.title)&&Objects.equals(local.date,date))return local;
+        return null;
     }
-    private List<?> list(Object value) { return value instanceof List ? (List<?>) value : Collections.emptyList(); }
-    @SuppressWarnings("unchecked") private List<Map<String, Object>> maps(Object value) {
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Object item : list(value)) if (item instanceof Map) result.add((Map<String, Object>) item);
-        return result;
-    }
-    @SuppressWarnings("unchecked") private Map<String, Object> object(Object value) {
-        return value instanceof Map ? (Map<String, Object>) value : Collections.emptyMap();
-    }
-    private String string(Object value) { return value == null ? "" : String.valueOf(value); }
-    private String stringOr(Object value, String fallback) { String result = string(value); return result.isBlank() ? fallback : result; }
-    private long number(Object value, long fallback) { return value instanceof Number ? ((Number) value).longValue() : fallback; }
-    private long longValue(Object value, long fallback) {
-        if (value instanceof Number) return ((Number) value).longValue();
-        try { return Long.parseLong(String.valueOf(value)); }
-        catch (RuntimeException ignored) { return fallback; }
-    }
-    private boolean bool(Object value, boolean fallback) { return value instanceof Boolean ? (Boolean) value : fallback; }
-    private String safeMessage(Exception error) { return error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(); }
-    private static final class SyncException extends Exception { SyncException(String message) { super(message); } }
+    private String addDays(String date,int days){try{java.time.LocalDate parsed=java.time.LocalDate.parse(date);return parsed.plusDays(days).toString();}catch(Exception e){return LocalStore.today();}}
+    private String addMinutes(String time,int amount){try{return java.time.LocalTime.parse(time).plusMinutes(amount).toString()+":00";}catch(Exception e){return "09:30:00";}}
+
+    private TaskList findListByTitle(TaskDatabase db,String title){for(TaskListWithTasks row:db.taskListDao().allLists())if(Objects.equals(row.list.title,title))return row.list;return null;}
+    private String findLocalListId(Map<String,Integer> ids,int remote){for(Map.Entry<String,Integer> e:ids.entrySet())if(e.getValue()==remote)return e.getKey();return null;}
+    private Map<String,Integer> readIds(SharedPreferences p,String key){try{java.lang.reflect.Type type=new com.google.gson.reflect.TypeToken<Map<String,Integer>>(){}.getType();Map<String,Integer> v=gson.fromJson(p.getString(key,"{}"),type);return v==null?new LinkedHashMap<>():v;}catch(Exception e){return new LinkedHashMap<>();}}
+    private <T>T execute(Call<T> call)throws Exception{Response<T> r=call.execute();if(!r.isSuccessful())throw new SyncException("HTTP "+r.code()+" "+(r.errorBody()==null?"":r.errorBody().string()));return r.body();}
+    private void executeVoid(Call<Void> call)throws Exception{Response<Void> r=call.execute();if(!r.isSuccessful())throw new SyncException("HTTP "+r.code()+" "+(r.errorBody()==null?"":r.errorBody().string()));}
+    private static final class SyncException extends Exception{SyncException(String message){super(message);}}
 }

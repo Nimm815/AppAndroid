@@ -5,41 +5,28 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
-
 @Component
 public class AuthenticatedUser {
     private final JdbcTemplate database;
+    private final SignedBearerTokens tokens;
 
-    public AuthenticatedUser(JdbcTemplate database) {
+    public AuthenticatedUser(JdbcTemplate database, SignedBearerTokens tokens) {
         this.database = database;
+        this.tokens = tokens;
     }
 
     public int requireId(String authorization) {
-        if (authorization == null || !authorization.matches("Bearer [A-Za-z0-9_-]{43}")) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập lại");
+        SignedBearerTokens.Claims claims = tokens.claims(authorization);
+        if (claims == null) throw unauthorized();
+        var users = database.queryForList("SELECT PasswordHash FROM users "
+                        + "WHERE UserID=? AND IsLocked=0 AND IsDeleted=0", claims.userId());
+        if (users.isEmpty() || !tokens.verify(authorization, (String) users.get(0).get("PasswordHash"))) {
+            throw unauthorized();
         }
+        return claims.userId();
+    }
 
-        String token = authorization.substring("Bearer ".length());
-        String hash;
-        try {
-            hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(token.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
-
-        var users = database.queryForList(
-                "SELECT u.UserID FROM auth_sessions s JOIN users u ON u.UserID=s.UserID "
-                        + "WHERE s.TokenHash=? AND s.ExpiresAt>UTC_TIMESTAMP() "
-                        + "AND u.IsLocked=0 AND u.IsDeleted=0",
-                hash);
-        if (users.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ hoặc đã hết hạn");
-        }
-        return ((Number) users.get(0).get("UserID")).intValue();
+    private static ResponseStatusException unauthorized() {
+        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập không hợp lệ hoặc đã hết hạn");
     }
 }

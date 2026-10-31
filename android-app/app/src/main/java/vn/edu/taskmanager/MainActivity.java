@@ -37,6 +37,7 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
         if ("status".equals(key)) runOnUiThread(() -> {
             String status = preferences.getString("status", "");
             if (workspace != null) workspace.refreshSyncStatus();
+            if (workspace != null && status.startsWith("Đã đồng bộ")) workspace.refresh();
             if (status.startsWith("Chưa lưu") || status.startsWith("Chưa đồng bộ"))
                 Toast.makeText(this, status, Toast.LENGTH_LONG).show();
         });
