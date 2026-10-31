@@ -1,5 +1,0 @@
-ALTER TABLE users
-    ADD COLUMN PhoneNumber VARCHAR(20) NULL AFTER Email,
-    ADD COLUMN BirthDate DATE NULL AFTER PhoneNumber,
-    ADD COLUMN Gender VARCHAR(16) NULL AFTER BirthDate,
-    ADD COLUMN AvatarRef VARCHAR(255) NULL AFTER Gender;

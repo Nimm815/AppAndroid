@@ -29,32 +29,50 @@ public class TaskManagementService {
         TaskList l=id==null?new TaskList():list(id); l.setUserId(user.id());l.setListName(input.name().trim());l.setColor(input.color());
         return listView(lists.saveAndFlush(l));
     }
-    public void deleteList(int id) { lists.delete(list(id)); lists.flush(); }
+    public void deleteList(int id) {
+        TaskList ownedList = list(id);
+        items.deleteAll(items.findByIdListIdOrderBySortOrderAsc(id));
+        items.flush();
+        lists.delete(ownedList);
+        lists.flush();
+    }
     private TaskView view(Task t) {
         Integer listId=items.findByIdTaskId(t.getTaskId()).map(m->m.getId().getListId()).orElse(null);
-        return new TaskView(t.getTaskId(),t.getTitle(),t.getDescription(),t.getNotes(),t.getStartDate(),t.getDueDate(),t.getPriority(),t.getStatus(),t.getProgress(),listId);
+        return new TaskView(t.getTaskId(),t.getTitle(),t.getDescription(),null,t.getStartDate(),t.getDueDate(),t.getPriority(),t.getStatus(),t.getProgress(),listId);
     }
     public TaskView get(int id) { return view(task(id)); }
     public List<TaskView> search(Integer listId,String status,String sort) {
         if(listId!=null) list(listId);
-        if(!Set.of("ALL","PENDING","COMPLETED").contains(status) || !Set.of("due","priority").contains(sort)) throw new IllegalArgumentException();
-        Comparator<TaskView> order=sort.equals("priority")?Comparator.comparingInt(t->switch(t.priority()){case "HIGH"->0;case "MEDIUM"->1;default->2;}):Comparator.comparing(TaskView::dueDate,Comparator.nullsLast(Comparator.naturalOrder()));
+        if(!Set.of("ALL","PENDING","TODO","IN_PROGRESS","COMPLETED","CANCELLED").contains(status) || !Set.of("due","priority").contains(sort)) throw new IllegalArgumentException();
+        Comparator<TaskView> order=sort.equals("priority")?Comparator.comparingInt(t->switch(t.priority()){case "URGENT"->0;case "HIGH"->1;case "MEDIUM"->2;default->3;}):Comparator.comparing(TaskView::dueDate,Comparator.nullsLast(Comparator.naturalOrder()));
         return tasks.findByUserId(user.id()).stream().map(this::view).filter(t->listId==null||listId.equals(t.listId()))
-            .filter(t->status.equals("ALL")||(status.equals("COMPLETED")?t.progress()==100:t.progress()<100))
+            .filter(t -> {
+                if (status.equals("ALL")) return true;
+                if (status.equals("PENDING") || status.equals("TODO")) return t.progress()<100 && !"CANCELLED".equals(t.status());
+                return status.equals(t.status());
+            })
             .sorted(order.thenComparingInt(TaskView::id)).toList();
     }
     public TaskView save(Integer id,TaskInput in) {
         if(in.startDate()!=null&&in.dueDate()!=null&&in.dueDate().isBefore(in.startDate())) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Hạn hoàn thành phải sau thời gian bắt đầu");
         if(in.listId()!=null) list(in.listId());
+        if (in.notes() != null && !in.notes().isBlank())
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"Bảng tasks hiện tại không có cột ghi chú riêng.");
         Task t=id==null?new Task():task(id);
-        if(id==null){t.setUserId(user.id());t.setStatus("PENDING");t.setProgress((byte)0);}
-        t.setTitle(in.title().trim());t.setDescription(in.description());t.setNotes(in.notes());t.setStartDate(in.startDate());t.setDueDate(in.dueDate());t.setPriority(in.priority());
+        if(id==null){t.setUserId(user.id());t.setStatus("TODO");t.setProgress((byte)0);}
+        t.setTitle(in.title().trim());t.setDescription(in.description());t.setStartDate(in.startDate());t.setDueDate(in.dueDate());t.setPriority(in.priority());
         tasks.saveAndFlush(t);
         if(in.listId()!=null) assignments.move(user.id(),t.getTaskId(),in.listId(),0);
         else items.findByIdTaskId(t.getTaskId()).ifPresent(items::delete);
         items.flush();return view(t);
     }
-    public TaskView complete(int id,boolean completed) { Task t=task(id); t.setProgress((byte)(completed?100:0));t.setStatus(completed?"COMPLETED":"PENDING");t.setCompletedAt(completed?LocalDateTime.now(ZoneOffset.UTC):null); return view(t); }
+    public TaskView complete(int id,boolean completed) { Task t=task(id); t.setProgress((byte)(completed?100:0));t.setStatus(completed?"COMPLETED":"TODO");t.setCompletedAt(completed?LocalDateTime.now(ZoneOffset.UTC):null); return view(t); }
+    public TaskView progress(int id,int progress) {
+        Task t=task(id);t.setProgress((byte)progress);
+        t.setStatus(progress==100?"COMPLETED":progress==0?"TODO":"IN_PROGRESS");
+        t.setCompletedAt(progress==100?LocalDateTime.now(ZoneOffset.UTC):null);
+        return view(t);
+    }
     public TaskView move(int id,int listId) { task(id);list(listId);assignments.move(user.id(),id,listId,0);return view(task(id)); }
     public void delete(int id) { tasks.delete(task(id)); tasks.flush(); }
 }

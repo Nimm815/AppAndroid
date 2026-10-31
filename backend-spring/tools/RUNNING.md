@@ -1,109 +1,42 @@
-> Hướng dẫn hiện hành về Android và backend: [README Android](../../android-app/README.md). Đăng nhập dùng Auth Service; bản chụp dữ liệu công việc và năng suất đi qua Task/Productivity. Các hướng dẫn tài khoản cố định hoặc cấu hình URL trong app bên dưới là lịch sử.
-
-> Hướng dẫn hiện hành: [Đồng bộ backend microservices trong Android](../../android-app/README.md#đồng-bộ-với-backend-microservices). Cần Auth/Task/Productivity đang chạy, migration Task V4 / Productivity V6 và profile `dev`. AI chưa tham gia luồng app. Hướng dẫn màn hình MySQL riêng bên dưới là lịch sử, không còn áp dụng.
-
-> Sửa trường hợp app chưa lưu MySQL: chạy .\tools\Update-DevelopmentBackend.ps1 từ backend-spring.
-> Script tái sử dụng biến môi trường hoặc hỏi mật khẩu ẩn, build Task/Productivity, dừng đúng hai service được quản lý,
-> chạy migration mới, khởi động profile dev và kiểm tra GET HTTP 200. Không xóa dữ liệu hoặc thay đổi Auth/AI.
-> Android: cấu hình kết nối một lần, sau đó thao tác ngay trên giao diện gốc.
-> Thay đổi công việc và thói quen tự gửi MySQL; mất mạng sẽ giữ cục bộ và thử lại.
-> Start-AllServices hiện chạy từ bản sao JAR theo SHA256 để build mới không thay JAR của tiến trình đang chạy.
-> Cập nhật 30/10/2026: Android đồng bộ bản chụp dữ liệu công việc lên Task Service và dữ liệu năng suất lên Productivity Service. Xem hướng dẫn đồng bộ ở README Android. Các ghi chú bên dưới về cấu hình endpoint riêng mô tả giai đoạn trước đó.
-
 # Chạy backend trên Windows
 
-Mở PowerShell tại thư mục backend-spring. Yêu cầu Java 21 trên PATH và MySQL đã chạy migration.
-Các script dùng Windows PowerShell 5.1 hoặc PowerShell 7 trên Windows.
+Backend dùng bốn service Spring Boot riêng, mỗi service kết nối đúng database của nó. Schema phải được tạo sẵn; cấu hình hiện tại tắt Hibernate DDL và SQL initialization. Script không tạo bảng hay chạy migration.
 
-## Khởi động, kiểm tra, dừng
+## Điều kiện
 
-    .\tools\Start-AllServices.ps1
-    .\tools\Check-Services.ps1 | Format-Table -AutoSize
-    .\tools\Stop-AllServices.ps1
+- Java 21 trên `PATH`.
+- MySQL đang chạy và đã có bốn database cùng các bảng mới.
+- Tài khoản MySQL được cấp quyền trên database tương ứng.
+- Đã build JAR sau khi sửa code.
 
-To apply pending Flyway migrations and validate the selected service schemas before startup,
-explicitly add `-ApplyMigrations`. This runs only for services named by `-Services`; it refuses
-to migrate a service that is already running. For example, to update only Productivity:
+Tại `backend-spring`, build ba service Android đang dùng:
 
-    .\tools\Start-AllServices.ps1 -Services productivity -DevelopmentApi -ApplyMigrations
+```powershell
+..\android-app\gradlew.bat :auth-service:bootJar :task-service:bootJar :productivity-service:bootJar
+```
 
-Start tự yêu cầu username và nhập mật khẩu ẩn khi thiếu biến môi trường.
-Nếu đã cấu hình đủ trong cùng terminal, script không hỏi lại. Không gửi mật khẩu qua chat.
-Biến môi trường đặt trong terminal khác không tự truyền sang terminal hiện tại hay Codex.
-Nếu tài khoản đã có nhưng sai mật khẩu, kiểm tra log rồi nhập lại bằng:
+Sau đó khởi động:
 
-    .\tools\Set-DatabaseEnvironment.ps1 -Service auth -ReplacePassword
+```powershell
+.\tools\Start-TaskMindDev.ps1
+```
 
-Nếu host/port MySQL khác mặc định:
+Script hỏi username/mật khẩu MySQL (mật khẩu được nhập ẩn), kiểm tra service và khởi động Auth `8081`, Task `8082`, Productivity `8083`. Thông tin database chỉ tồn tại trong terminal hiện tại. Không gửi mật khẩu qua chat.
 
-    .\tools\Set-DatabaseEnvironment.ps1 -Service auth -Username taskmind_auth -HostName localhost -Port 3306
+Kiểm tra và dừng service:
 
-Làm tương tự với task, productivity, ai bằng tài khoản được cấp quyền cho database tương ứng.
-Không tự cấp quyền, đổi mật khẩu MySQL hoặc bật allowPublicKeyRetrieval để chữa lỗi xác thực.
-Giữ cấu hình SSL phù hợp môi trường của bạn.
+```powershell
+.\tools\Check-Services.ps1 | Format-Table -AutoSize
+.\tools\Stop-AllServices.ps1
+```
 
-Dùng -NoPrompt cho môi trường tự động: thiếu thông tin sẽ báo lỗi, không chờ nhập.
-Start báo lỗi tổng hợp nếu một service thất bại; các service khác vẫn được thử khởi động.
-Có thể tăng thời gian chờ bằng -TimeoutSeconds 180.
+Log stdout/stderr nằm trong `build/services`. Nếu service dừng lúc khởi động, xem log mới nhất của service đó. `RUNNING` chỉ xác nhận tiến trình đã khởi động; thao tác API cần database hợp lệ và token đăng nhập.
 
-| Service | Biến cổng | Mặc định |
-|---|---|---|
-| auth | AUTH_PORT | 8081 |
-| task | TASK_PORT | 8082 |
-| productivity | PRODUCTIVITY_PORT | 8083 |
-| ai | AI_PORT | 8084 |
+## Bốn database
 
-Start khởi chạy Java độc lập trong nền rồi theo dõi tất cả service. Cửa sổ bị ẩn.
-Các đối số ép profile default và web servlet, không chạy MigrationRunner của profile migrate.
-JAR được chọn từ từng build/libs, bỏ qua *-plain.jar; nhiều executable JAR thì yêu cầu xử lý thủ công.
-Cổng đã chiếm hoặc cùng JAR đã chạy thủ công thì báo lỗi và không khởi động trùng.
-Stop chỉ dừng PID được ghi nhận có cùng thời điểm tạo, đường dẫn JAR và mã nhận diện riêng.
-Stop dùng kết thúc tiến trình trên Windows, không phải graceful shutdown; chỉ dùng khi đã ngừng gửi request.
-Script không tự khởi động lại sau reboot/crash và không cài Windows Service.
+- Auth: `taskmind_auth_db.users`
+- Task: `taskmind_task_db.tasks`, `tasklists`, `tasklistitems`
+- Productivity: `taskmind_productivity_db.habits`, `habitlogs`, `journalentries`, `calendarevents`, `reminders`, `notifications`
+- AI: `taskmind_ai_db.aichats`, `aichatmessages`
 
-## Log và trạng thái
-
-Log stdout/stderr riêng từng lần chạy nằm trong build/services; JSON chỉ chứa PID, thời điểm tạo,
-JAR, cổng, đường dẫn log và token nhận diện. Thư mục build được Git bỏ qua.
-Thông tin xác thực chỉ nằm trong môi trường tiến trình, không đặt trong đối số Java hoặc JSON.
-Không bật log debug chứa thông tin nhạy cảm hoặc lưu toàn bộ biến môi trường ra file.
-
-RUNNING nghĩa là tiến trình sở hữu cổng và đã xuất hiện dòng Started ...Application.
-Start còn kiểm tra service tiếp tục sống ít nhất 5 giây.
-Đây là kiểm tra khởi động, không phải kiểm tra database liên tục hay API health.
-STARTING_OR_UNHEALTHY cần xem log; PORT_OCCUPIED_UNMANAGED không bị script dừng.
-Timeout giữ tiến trình lại để chẩn đoán; dùng Stop nếu muốn dừng.
-
-    Get-Content .\build\services\auth-<token>.stdout.log -Tail 60
-    Test-NetConnection 127.0.0.1 -Port 8081
-
-## Database và API
-
-Start giữ ddl-auto=validate, SQL init=never, Flyway clean bị vô hiệu hóa và baseline tự động bị tắt.
-Flyway chạy với `target=latest` và áp dụng các migration versioned còn thiếu khi service khởi động.
-Không đặt `target=current`, vì tùy chọn đó ngăn migration versioned mới chạy dù Flyway vẫn báo đã validate migration.
-`-ApplyMigrations` là preflight tùy chọn để chạy migration và Hibernate validation trước khi mở
-web service; thông thường không cần vì startup cũng chạy Flyway rồi validate schema.
-Nếu sau này thêm repeatable migration/callback, chúng cũng được Flyway xử lý theo mặc định.
-Không sửa SQL migration đã áp dụng để chữa lỗi checksum.
-
-Source hiện chưa có REST controller nghiệp vụ hay Actuator.
-GET / trả 404 là phản hồi HTTP hợp lệ cho đường dẫn chưa được định nghĩa,
-không phải bằng chứng API đăng nhập, CRUD hoặc health đã hoạt động.
-Khởi động thành công với Flyway/JPA validate xác nhận kết nối và schema tại thời điểm khởi động.
-Chưa có kiểm tra nghiệp vụ HTTP trên dữ liệu thật.
-
-## Build và kiểm thử biệt lập
-
-    ..\android-app\gradlew.bat -p . bootJar
-    .\tools\Test-MySql.ps1 -LifecycleChecks
-
-Lệnh kiểm thử tạo MySQL tạm cổng 13316, database thử mới và mật khẩu ngẫu nhiên trong RAM;
-chạy integration tests hai lượt, build JAR, chạy bốn service trên các cổng cấu hình,
-kiểm tra chống chạy trùng, GET / = 404, còn sống sau 10 giây và dừng đúng các service thử.
-Cần bốn cổng service trống. Kiểm thử dừng MySQL tạm khi xong, không dùng dữ liệu MySQL 3306.
-Không dùng lệnh này như lệnh khởi động backend để sử dụng app.
-
-Tài liệu:
-- https://docs.spring.io/spring-boot/3.5/reference/features/profiles.html
-- https://documentation.red-gate.com/flyway/reference/configuration/flyway-namespace/flyway-target-setting
+Auth/Task/Productivity là các API nghiệp vụ đang dùng. AI Service có mapping dữ liệu nhưng tính năng AI chưa triển khai. Snapshot sync cũ không dùng vì cần bảng không nằm trong schema được yêu cầu.

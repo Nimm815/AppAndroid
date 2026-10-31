@@ -1,7 +1,6 @@
 package vn.edu.taskmind.task.domain;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 

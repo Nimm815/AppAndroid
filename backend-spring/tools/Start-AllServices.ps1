@@ -1,6 +1,9 @@
 ﻿param([ValidateSet('auth','task','productivity','ai')][string[]]$Services = @('auth','task','productivity','ai'), [switch]$DevelopmentApi, [switch]$ApplyMigrations, [switch]$NoPrompt, [ValidateRange(5,600)][int]$TimeoutSeconds=90)
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\ServiceTools.ps1"
+if ($ApplyMigrations) {
+    throw 'Migrations của schema cũ đã bị vô hiệu hóa. Backend chỉ kết nối các bảng đang có và không được tự tạo/thay đổi schema.'
+}
 $lock = Enter-LifecycleLock
 $failures = 0
 try {
@@ -14,7 +17,6 @@ try {
         try {
             $previous = Read-ServiceState $service
             if (Get-OwnedProcess $previous) {
-                if ($ApplyMigrations) { throw "$($service.Name) is already running. Stop it before applying migrations." }
                 Write-Host "$($service.Name): already managed on port $($previous.Port); use Check-Services.ps1."
                 continue
             }
@@ -33,11 +35,6 @@ try {
                 & "$PSScriptRoot\Set-DatabaseEnvironment.ps1" -Service $service.Name
             }
             $sourceJar = $jar
-            if ($ApplyMigrations) {
-                Write-Host "$($service.Name): applying pending Flyway migrations and validating the schema."
-                & $java -jar $sourceJar --spring.profiles.active=migrate --spring.main.web-application-type=none --spring.flyway.clean-disabled=true --spring.flyway.baseline-on-migrate=false --spring.jpa.hibernate.ddl-auto=validate --spring.sql.init.mode=never
-                if ($LASTEXITCODE -ne 0) { throw "$($service.Name) migration or Hibernate schema validation failed. Service was not started." }
-            }
             $digest = (Get-FileHash -LiteralPath $sourceJar -Algorithm SHA256).Hash
             $artifactDirectory = Join-Path $RuntimeRoot 'artifacts'
             New-Item -ItemType Directory -Path $artifactDirectory -Force | Out-Null
@@ -46,16 +43,14 @@ try {
             $token = [guid]::NewGuid().ToString('N')
             $output = Join-Path $RuntimeRoot "$($service.Name)-$token.stdout.log"
             $errors = Join-Path $RuntimeRoot "$($service.Name)-$token.stderr.log"
-            # Normal web profile; do not apply pending migrations during operational startup.
+            # Only use existing schema; Hibernate DDL and SQL initialization stay disabled.
             $profile = 'default'
             if ($DevelopmentApi -and $service.Name -in @('task','productivity')) { $profile = 'dev' }
             $localArguments = ''
-            if ($DevelopmentApi -and $service.Name -in @('task','productivity')) {
-                $localArguments = ' --server.address=127.0.0.1 --taskmind.local-workspace=true --taskmind.local-user-id=1'
-            } elseif ($DevelopmentApi -and $service.Name -eq 'auth') {
+            if ($DevelopmentApi -and $service.Name -in @('auth','task','productivity','ai')) {
                 $localArguments = ' --server.address=127.0.0.1'
             }
-            $arguments = "-Dtaskmind.launch=$token -jar ""$jar"" --spring.profiles.active=$profile --spring.profiles.include=default --spring.main.web-application-type=servlet --server.port=$($service.Port)$localArguments --spring.flyway.target=latest --spring.flyway.clean-disabled=true --spring.flyway.baseline-on-migrate=false --spring.jpa.hibernate.ddl-auto=validate --spring.sql.init.mode=never"
+            $arguments = "-Dtaskmind.launch=$token -jar ""$jar"" --spring.profiles.active=$profile --spring.profiles.include=default --spring.main.web-application-type=servlet --server.port=$($service.Port)$localArguments --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=none --spring.sql.init.mode=never"
             $process = Start-Process -FilePath $java -ArgumentList $arguments -WorkingDirectory $BackendRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput $output -RedirectStandardError $errors
             $state = [pscustomobject]@{ ProcessId=$process.Id; StartTicks=$process.StartTime.ToUniversalTime().Ticks.ToString()
                 Token=$token; Jar=$jar; Port=$service.Port; Output=$output; Error=$errors }
@@ -73,7 +68,7 @@ try {
             } elseif (Test-ServiceReady $state) {
                 if (-not $item.StableSince) { $item.StableSince = Get-Date }
                 if (((Get-Date) - $item.StableSince).TotalSeconds -ge 5) {
-                    Write-Host "$($item.Service.Name): STARTED, port $($state.Port), stable for 5 seconds; Flyway/JPA initialization completed."
+                    Write-Host "$($item.Service.Name): STARTED, port $($state.Port), stable for 5 seconds."
                 } else { $remaining += $item }
             } elseif ((Get-Date) -gt $item.Deadline) {
                 $failures++; Write-Warning "$($item.Service.Name): timeout; process retained for diagnosis. Log: $($state.Output)"

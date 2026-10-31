@@ -14,7 +14,7 @@ class NativeIdentityTest {
   assertThrows(IllegalStateException.class,()->org.springframework.test.util.ReflectionTestUtils.invokeMethod(identity,"validateLocalWorkspace"));
   org.springframework.test.util.ReflectionTestUtils.setField(identity,"bindAddress","127.0.0.1");
   org.springframework.test.util.ReflectionTestUtils.invokeMethod(identity,"validateLocalWorkspace");
-  var request=new MockHttpServletRequest();request.setRequestURI("/api/native-workspace/test");request.setRemoteAddr("192.168.1.5");
+  var request=new MockHttpServletRequest();request.setRequestURI("/api/tasks");request.setRemoteAddr("192.168.1.5");
   RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
   assertEquals(401,assertThrows(ResponseStatusException.class,identity::id).getStatusCode().value());
   request.setRemoteAddr("127.0.0.1");assertEquals(1,identity.id());

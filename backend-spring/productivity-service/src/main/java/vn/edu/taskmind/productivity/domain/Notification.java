@@ -1,9 +1,7 @@
 package vn.edu.taskmind.productivity.domain;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 @Entity
 @Table(name = "notifications")
@@ -16,19 +14,34 @@ public class Notification {
     @Column(name = "UserID", nullable = false)
     private Integer userId;
 
-    @Column(name = "ReminderID", nullable = false)
+    @Column(name = "ReminderID", nullable = true)
     private Integer reminderId;
 
-    @Column(name = "Title", nullable = false, length = 200)
+    @Column(name = "Title", nullable = false, length = 255)
     private String title;
 
-    @Column(name = "Content", nullable = false, columnDefinition = "text")
+    @Column(name = "Content", nullable = true, columnDefinition = "text")
     private String content;
 
     @Column(name = "IsRead", nullable = false, columnDefinition = "tinyint(1)")
     private Boolean isRead = false;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @Column(name = "Type", nullable = false, length = 20,
+            columnDefinition = "enum('INFO','SUCCESS','WARNING','ERROR','REMINDER')")
+    private String type = "INFO";
+
+    @Column(name = "CreatedAt", nullable = false, columnDefinition = "datetime")
+    private LocalDateTime createdAt;
+
+    @Column(name = "ReadAt", nullable = true, columnDefinition = "datetime")
+    private LocalDateTime readAt;
+
+    @PrePersist
+    void onCreate() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+    }
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "ReminderID", insertable = false, updatable = false)
     private Reminder reminder;
 
@@ -46,5 +59,10 @@ public class Notification {
     public void setContent(String content) { this.content = content; }
     public Boolean getIsRead() { return isRead; }
     public void setIsRead(Boolean isRead) { this.isRead = isRead; }
+    public String getType() { return type; }
+    public void setType(String value) { type = value; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getReadAt() { return readAt; }
+    public void setReadAt(LocalDateTime value) { readAt = value; }
     public Reminder getReminder() { return reminder; }
 }

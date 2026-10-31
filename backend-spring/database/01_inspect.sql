@@ -1,4 +1,4 @@
--- Chỉ đọc: chạy trước và sau migration, không cần chọn default schema.
+-- Chỉ đọc schema bốn database nghiệp vụ; backend không chạy migration.
 SELECT VERSION();
 SELECT TABLE_SCHEMA, TABLE_NAME FROM information_schema.TABLES
 WHERE TABLE_SCHEMA IN ('taskmind_auth_db', 'taskmind_task_db', 'taskmind_productivity_db', 'taskmind_ai_db')
