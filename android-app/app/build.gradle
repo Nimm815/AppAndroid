@@ -9,11 +9,13 @@ android {
             buildConfigField 'String', 'AUTH_URL', '"http://127.0.0.1:8081/"'
             buildConfigField 'String', 'TASK_URL', '"http://127.0.0.1:8082/"'
             buildConfigField 'String', 'HABIT_URL', '"http://127.0.0.1:8083/"'
+            buildConfigField 'String', 'AI_URL', '"http://127.0.0.1:8084/"'
         }
         release {
             buildConfigField 'String', 'AUTH_URL', groovy.json.JsonOutput.toJson(providers.gradleProperty('authUrl').getOrElse(''))
             buildConfigField 'String', 'TASK_URL', groovy.json.JsonOutput.toJson(providers.gradleProperty('taskUrl').getOrElse(''))
             buildConfigField 'String', 'HABIT_URL', groovy.json.JsonOutput.toJson(providers.gradleProperty('habitUrl').getOrElse(''))
+            buildConfigField 'String', 'AI_URL', groovy.json.JsonOutput.toJson(providers.gradleProperty('aiUrl').getOrElse(''))
         }
     }
     defaultConfig {

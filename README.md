@@ -152,10 +152,10 @@ Các service hiện có trong repository:
 | `backend-spring/auth-service` | Tài khoản, phiên đăng nhập và hồ sơ; MySQL `taskmind_auth_db` |
 | `backend-spring/task-service` | Công việc, danh sách và API; MySQL `taskmind_task_db` |
 | `backend-spring/productivity-service` | Thói quen, nhật ký, lịch, lời nhắc và lịch sử; MySQL `taskmind_productivity_db` |
-| `backend-spring/ai-service` | Service lưu hội thoại AI; MySQL `taskmind_ai_db`; chưa có gợi ý AI nối với app |
+| `backend-spring/ai-service` | Microservice Python + FastAPI; gọi Gemini và lưu hội thoại trong MySQL `taskmind_ai_db` |
 | `admin-web` | Giao diện quản trị ReactJS; gọi API Auth, Task và Productivity theo từng service |
 
-Các service chạy riêng và kết nối qua API. Script `backend-spring/tools/Start-TaskMindDev.ps1` chạy Auth, Task và Productivity trên các cổng 8081–8083; AI chưa tham gia luồng app hoặc Admin Web. `task_management_app` và backend đơn khối trong `android-app/backend` / `backend-spring/src/main` còn được giữ để đối chiếu, không được app hiện tại sử dụng. Admin Web gọi API mới; dữ liệu ở database cũ chưa được di chuyển hoặc xóa. Đừng xóa database hoặc chạy dump có `DROP TABLE` trước khi hoàn tất đối chiếu dữ liệu.
+Các service chạy riêng và kết nối qua API. Script `backend-spring/tools/Start-TaskMindDev.ps1` chạy Auth, Task và Productivity trên các cổng 8081–8083. AI Service là ứng dụng FastAPI riêng, chạy cổng 8084 theo hướng dẫn trong `backend-spring/ai-service/README.md`. Trên Android, nút **AI** ở thanh trên Trang chủ mở cửa sổ chat và gọi AI Service; người dùng cần đăng nhập để AI đọc đúng dữ liệu tài khoản. `task_management_app` và backend đơn khối trong `android-app/backend` / `backend-spring/src/main` còn được giữ để đối chiếu, không được app hiện tại sử dụng. Admin Web gọi API mới; dữ liệu ở database cũ chưa được di chuyển hoặc xóa. Đừng xóa database hoặc chạy dump có `DROP TABLE` trước khi hoàn tất đối chiếu dữ liệu.
 
 Để dùng Admin Web với các database microservices, build các service khi source thay đổi rồi chạy `backend-spring/tools/Start-TaskMindDev.ps1`; script này bật API phát triển trên Auth, Task và Productivity. Sau đó chạy `npm run dev` trong `admin-web`. Admin lấy hồ sơ từ Auth, số công việc từ Task và thống kê lịch sử từ Productivity. Trang quản trị AI và đăng nhập/quyền Admin production chưa được triển khai.
 

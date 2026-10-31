@@ -1,4 +1,4 @@
-﻿param([ValidateSet('auth','task','productivity','ai')][string[]]$Services = @('auth','task','productivity','ai'))
+param([ValidateSet('auth','task','productivity')][string[]]$Services = @('auth','task','productivity'))
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\ServiceTools.ps1"
 $lock = Enter-LifecycleLock

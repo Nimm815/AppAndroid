@@ -1,5 +1,5 @@
-﻿param(
-    [Parameter(Mandatory=$true)][ValidateSet('auth','task','productivity','ai')][string]$Service,
+param(
+    [Parameter(Mandatory=$true)][ValidateSet('auth','task','productivity')][string]$Service,
     [string]$Username, [string]$HostName,
     [ValidateRange(1,65535)][int]$Port,
     [switch]$ReplacePassword

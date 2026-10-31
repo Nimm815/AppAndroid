@@ -204,7 +204,7 @@ sản phẩm HelloHabit. Các tính năng gợi ý AI và đồng bộ đa thi�
 8. Báo cáo: thử các kỳ, lưu PNG qua trình chọn tệp và chia sẻ văn bản.
 9. Cài đặt: đổi sáng/tối rồi đổi lại; kiểm tra chữ và các nút đọc được.
 
-Đã có đăng nhập, hồ sơ và đồng bộ Android với API Auth/Task/Productivity; chưa có gợi ý AI hoặc xử lý xung đột đồng thời giữa nhiều thiết bị, tích hợp Health Connect, lịch bên ngoài hay gói Premium. Admin Web cần rà soát riêng với ranh giới microservices mới.
+Đã có đăng nhập, hồ sơ và đồng bộ Android với API Auth/Task/Productivity. Nút **AI** trên Trang chủ mở cửa sổ chat qua AI Service FastAPI; AI Service cần chạy riêng ở cổng 8084, có Gemini API key và database `taskmind_ai_db`. AI đọc dữ liệu đã có trên các API máy chủ; dữ liệu chỉ còn lưu cục bộ trên thiết bị không được tự gửi. Chưa có xử lý xung đột đồng thời giữa nhiều thiết bị, tích hợp Health Connect, lịch bên ngoài hay gói Premium. Admin Web cần rà soát riêng với ranh giới microservices mới.
 ### Kết quả xác minh bản hiện tại
 
 - `assembleDebug` và `lintDebug`: thành công; Android Lint không có lỗi, còn các cảnh báo.

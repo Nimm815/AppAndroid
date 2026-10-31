@@ -238,7 +238,7 @@ function Set-AndroidUsbReverse([switch]$CheckOnly) {
 
     foreach ($device in $devices) {
         if (-not $CheckOnly) {
-            foreach ($port in @(8081,8082,8083)) {
+            foreach ($port in @(8081,8082,8083,8084)) {
                 $reverseResult = Invoke-AdbCommand -AdbPath $adb -Arguments @('-s', $device, 'reverse', "tcp:$port", "tcp:$port")
                 $reverseOutput = $reverseResult.Output
                 if ($reverseResult.ExitCode -ne 0) {
@@ -253,7 +253,7 @@ function Set-AndroidUsbReverse([switch]$CheckOnly) {
             Write-Warning "Không xác minh được ADB reverse của $device`: $($reverseList -join ' ')."
             continue
         }
-        foreach ($port in @(8081,8082,8083)) {
+        foreach ($port in @(8081,8082,8083,8084)) {
             if ($reverseList -match "tcp:$port\s+tcp:$port") {
                 if ($CheckOnly) {
                     Write-Host "ADB reverse đã có trên $device`: tcp:$port -> tcp:$port."
