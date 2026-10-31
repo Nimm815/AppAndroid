@@ -2,7 +2,7 @@
 $RuntimeRoot = Join-Path $BackendRoot 'build\services'
 function Get-ServiceDefinitions {
     $index = 0
-    foreach ($name in @('auth','task','productivity','ai')) {
+    foreach ($name in @('auth','task','productivity')) {
         $prefix = $name.ToUpperInvariant()
         $port = 8081 + $index
         $custom = [Environment]::GetEnvironmentVariable("$($prefix)_PORT")

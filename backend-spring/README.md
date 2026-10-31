@@ -1,6 +1,6 @@
 # Backend Spring Boot
 
-Backend gồm các Spring Boot microservice chạy riêng, mỗi service chỉ đọc/ghi database riêng hiện có: Auth (`taskmind_auth_db.users`), Task (`taskmind_task_db.tasks`, `tasklists`, `tasklistitems`), Productivity (`taskmind_productivity_db.habits`, `habitlogs`, `journalentries`, `calendarevents`, `reminders`, `notifications`) và AI (`taskmind_ai_db.aichats`, `aichatmessages`). Backend không tự tạo bảng, không tự chạy migration và không cần các bảng phụ. Chức năng AI chưa triển khai theo phạm vi hiện tại.
+Backend gồm các Spring Boot microservice Auth, Task, Productivity và AI Service viết bằng Python + FastAPI. Mỗi service dùng database riêng hiện có: Auth (`taskmind_auth_db.users`), Task (`taskmind_task_db.tasks`, `tasklists`, `tasklistitems`), Productivity (`taskmind_productivity_db.habits`, `habitlogs`, `journalentries`, `calendarevents`, `reminders`, `notifications`) và AI (`taskmind_ai_db.aichats`, `aichatmessages`). Backend không tự tạo bảng hoặc chạy migration. Xem `ai-service/README.md` để cài và chạy FastAPI/Gemini.
 
 ## Khởi động TaskMind Development (Windows)
 

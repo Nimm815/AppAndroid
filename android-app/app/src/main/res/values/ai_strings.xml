@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ai_chat">Trò chuyện với AI</string>
+    <string name="ai_chat_title">Trợ lý AI</string>
+    <string name="ai_privacy_note">Câu hỏi và dữ liệu công việc của bạn sẽ được gửi đến AI để trả lời. Hội thoại được lưu trong tài khoản của bạn.</string>
+    <string name="ai_chat_hint">Hỏi về công việc, thói quen…</string>
+    <string name="ai_chat_login">Đăng nhập để bắt đầu trò chuyện</string>
+    <string name="ai_chat_welcome">Xin chào! Hãy hỏi tôi về công việc, thói quen hoặc nhờ sắp xếp việc cần làm.</string>
+    <string name="ai_chat_send">Gửi</string>
+    <string name="ai_chat_error">Chưa gửi được câu hỏi. Hãy thử lại.</string>
+    <string name="ai_chat_loading">AI đang suy nghĩ…</string>
+</resources>

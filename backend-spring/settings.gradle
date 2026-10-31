@@ -1,4 +1,4 @@
 pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
 dependencyResolutionManagement { repositories { mavenCentral() } }
 rootProject.name = 'taskmind-backend'
-include 'auth-service', 'task-service', 'productivity-service', 'ai-service'
+include 'auth-service', 'task-service', 'productivity-service'

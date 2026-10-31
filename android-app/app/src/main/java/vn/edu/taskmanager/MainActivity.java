@@ -97,6 +97,8 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
             dateFilter = state.getInt("dateFilter", TaskFilters.DATE_CURRENT_VIEW);
         }
         workspace = new WorkspaceController(this, state);
+        findViewById(R.id.openAiChat).setOnClickListener(view ->
+                new AiChatDialog().show(getSupportFragmentManager(), "ai_chat"));
         if (getIntent() != null && getIntent().hasExtra("open_tab")) {
             workspace.selectTab(getIntent().getIntExtra("open_tab", 0));
         }

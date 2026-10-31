@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ai_chat_history">Lịch sử</string>
+    <string name="ai_chat_new">Cuộc trò chuyện mới</string>
+    <string name="ai_chat_history_title">Lịch sử trò chuyện</string>
+    <string name="ai_chat_no_history">Chưa có cuộc trò chuyện nào.</string>
+    <string name="ai_chat_history_failed">Không tải được lịch sử. Hãy thử lại.</string>
+</resources>

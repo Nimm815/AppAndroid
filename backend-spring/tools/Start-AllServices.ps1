@@ -1,4 +1,4 @@
-﻿param([ValidateSet('auth','task','productivity','ai')][string[]]$Services = @('auth','task','productivity','ai'), [switch]$DevelopmentApi, [switch]$ApplyMigrations, [switch]$NoPrompt, [ValidateRange(5,600)][int]$TimeoutSeconds=90)
+﻿param([ValidateSet('auth','task','productivity')][string[]]$Services = @('auth','task','productivity'), [switch]$DevelopmentApi, [switch]$ApplyMigrations, [switch]$NoPrompt, [ValidateRange(5,600)][int]$TimeoutSeconds=90)
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\ServiceTools.ps1"
 if ($ApplyMigrations) {
@@ -47,7 +47,7 @@ try {
             $profile = 'default'
             if ($DevelopmentApi -and $service.Name -in @('task','productivity')) { $profile = 'dev' }
             $localArguments = ''
-            if ($DevelopmentApi -and $service.Name -in @('auth','task','productivity','ai')) {
+            if ($DevelopmentApi -and $service.Name -in @('auth','task','productivity')) {
                 $localArguments = ' --server.address=127.0.0.1'
             }
             $arguments = "-Dtaskmind.launch=$token -jar ""$jar"" --spring.profiles.active=$profile --spring.profiles.include=default --spring.main.web-application-type=servlet --server.port=$($service.Port)$localArguments --spring.flyway.enabled=false --spring.jpa.hibernate.ddl-auto=none --spring.sql.init.mode=never"
