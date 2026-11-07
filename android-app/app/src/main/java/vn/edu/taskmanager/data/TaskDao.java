@@ -38,4 +38,13 @@ public interface TaskDao {
 
     @Query("SELECT * FROM tasks WHERE id = :id")
     Task findById(long id);
+
+    @Query("SELECT * FROM tasks WHERE calendarEventId = :eventId LIMIT 1")
+    Task findByCalendarEventId(String eventId);
+
+    @Query("UPDATE tasks SET title = :title, scheduledDate = :date, scheduledTime = :time, note = :note WHERE calendarEventId = :eventId")
+    void updateCalendarEvent(String eventId, String title, String date, String time, String note);
+
+    @Query("DELETE FROM tasks WHERE calendarEventId = :eventId")
+    void deleteByCalendarEventId(String eventId);
 }

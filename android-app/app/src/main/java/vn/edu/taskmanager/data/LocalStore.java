@@ -15,7 +15,7 @@ import java.util.UUID;
 /** Dữ liệu bổ sung cho bản giao diện cục bộ. Công việc vẫn nằm trong Room. */
 public class LocalStore {
     public static class Entry {
-        public String id, type, title, body, date, time, created;
+        public String id, type, title, body, date, time, created, remoteJournalId = "";
         public String label = "";
         public boolean bookmarked;
         public String sourceId = "", sourceType = "";
@@ -56,6 +56,7 @@ public class LocalStore {
                 entry.date = value.optString("date");
                 entry.time = value.optString("time", "09:00");
                 entry.created = value.optString("created", entry.date);
+                entry.remoteJournalId = value.optString("remoteJournalId", "");
                 entry.bookmarked = value.optBoolean("bookmarked");
                 entry.sourceId = value.optString("sourceId");
                 entry.sourceType = value.optString("sourceType");
@@ -129,7 +130,7 @@ public class LocalStore {
     }
     private boolean syncable(Entry entry) {
         return ("habit".equals(entry.type) && !"server_api".equals(entry.sourceType))
-                || "note".equals(entry.type) || "event".equals(entry.type);
+                || "event".equals(entry.type);
     }
     public void checkHabit(Entry entry, String day, boolean checked) {
         synchronized (LocalStore.class) {
@@ -167,7 +168,8 @@ public class LocalStore {
                 JSONObject value = new JSONObject();
                 value.put("id", entry.id).put("type", entry.type).put("title", entry.title)
                         .put("body", entry.body).put("label", entry.label).put("date", entry.date).put("time", entry.time)
-                        .put("created", entry.created).put("bookmarked", entry.bookmarked)
+                        .put("created", entry.created).put("remoteJournalId", entry.remoteJournalId)
+                        .put("bookmarked", entry.bookmarked)
                         .put("days", new JSONArray(entry.days)).put("sourceId", entry.sourceId)
                         .put("sourceType", entry.sourceType).put("progress", entry.progress)
                         .put("dailyProgress", new JSONObject(entry.dailyProgress))

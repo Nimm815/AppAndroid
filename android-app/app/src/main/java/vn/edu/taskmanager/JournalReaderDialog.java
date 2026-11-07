@@ -39,8 +39,12 @@ public class JournalReaderDialog extends DialogFragment {
         ImageButton bookmark = view.findViewById(R.id.readerBookmark);
         updateBookmark(bookmark, note);
         bookmark.setOnClickListener(v -> {
-            note.bookmarked = !note.bookmarked; store.save(note); updateBookmark(bookmark, note);
-            ((MainActivity) requireActivity()).refreshWorkspace();
+            note.bookmarked = !note.bookmarked;
+            MainActivity activity = (MainActivity) requireActivity();
+            store.save(note);
+            activity.syncJournalNote(note);
+            updateBookmark(bookmark, note);
+            activity.refreshWorkspace();
         });
         view.findViewById(R.id.readerEdit).setOnClickListener(v -> {
             MainActivity activity = (MainActivity) requireActivity();
@@ -51,7 +55,7 @@ public class JournalReaderDialog extends DialogFragment {
         view.findViewById(R.id.readerDelete).setOnClickListener(v -> new AlertDialog.Builder(requireContext())
                 .setTitle("Xóa ghi chú này?").setMessage("Bạn có muốn xóa ghi chú “" + note.title + "” không?")
                 .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.delete, (confirmation, which) -> {
-                    store.delete(note.id); ((MainActivity) requireActivity()).refreshWorkspace(); dismiss();
+                    ((MainActivity) requireActivity()).deleteJournalNote(note); dismiss();
                 }).show());
         return dialog;
     }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/users/me")
@@ -39,15 +40,13 @@ public class UserProfileController {
         if (request == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu thông tin hồ sơ");
         String fullName = ProfileRules.fullName(request.fullName());
         String email = ProfileRules.email(request.email());
-        if ((request.phoneNumber() != null && !request.phoneNumber().isBlank())
-                || (request.birthDate() != null && !request.birthDate().isBlank())
-                || (request.gender() != null && !request.gender().isBlank())) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Bảng users hiện tại chỉ lưu họ tên và email; avatar không có cột trong schema đã xác nhận.");
-        }
+        String phoneNumber = ProfileRules.phone(request.phoneNumber());
+        LocalDate birthDate = ProfileRules.birthDate(request.birthDate());
+        String gender = ProfileRules.gender(request.gender());
         try {
-            database.update("UPDATE users SET FullName=?,Email=?,UpdatedAt=UTC_TIMESTAMP() "
-                            + "WHERE UserID=? AND IsLocked=0 AND IsDeleted=0", fullName, email, userId);
+            database.update("UPDATE users SET FullName=?,Email=?,PhoneNumber=?,BirthDate=?,Gender=?,UpdatedAt=UTC_TIMESTAMP() "
+                            + "WHERE UserID=? AND IsLocked=0 AND IsDeleted=0",
+                    fullName, email, phoneNumber, birthDate, gender, userId);
         } catch (DuplicateKeyException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email đã được sử dụng bởi tài khoản khác");
         }
@@ -56,7 +55,7 @@ public class UserProfileController {
 
     private ProfileResponse profile(int userId) {
         var rows = database.queryForList(
-                "SELECT UserID,FullName,Email "
+                "SELECT UserID,FullName,Email,PhoneNumber,BirthDate,Gender "
                         + "FROM users WHERE UserID=? AND IsLocked=0 AND IsDeleted=0",
                 userId);
         if (rows.isEmpty()) {
@@ -67,6 +66,8 @@ public class UserProfileController {
                 ((Number) row.get("UserID")).intValue(),
                 (String) row.get("FullName"),
                 (String) row.get("Email"),
-                null, null, null, null);
+                row.get("PhoneNumber") == null ? null : row.get("PhoneNumber").toString(),
+                row.get("BirthDate") == null ? null : row.get("BirthDate").toString(),
+                (String) row.get("Gender"), null);
     }
 }

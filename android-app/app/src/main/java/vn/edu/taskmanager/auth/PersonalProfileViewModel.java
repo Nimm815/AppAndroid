@@ -337,8 +337,14 @@ public final class PersonalProfileViewModel extends AndroidViewModel {
                 String body = response.errorBody().string();
                 if (!body.isBlank()) {
                     var json = JsonParser.parseString(body);
-                    if (json.isJsonObject() && json.getAsJsonObject().has("message")) {
-                        message = json.getAsJsonObject().get("message").getAsString();
+                    if (json.isJsonObject()) {
+                        var object = json.getAsJsonObject();
+                        for (String key : new String[]{"message", "detail", "title", "error"}) {
+                            if (object.has(key) && object.get(key).isJsonPrimitive()) {
+                                String detail = object.get(key).getAsString();
+                                if (!detail.isBlank()) { message = detail; break; }
+                            }
+                        }
                     }
                 }
             } catch (IOException | IllegalStateException error) {

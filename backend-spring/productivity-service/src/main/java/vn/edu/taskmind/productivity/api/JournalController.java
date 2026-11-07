@@ -28,8 +28,10 @@ public class JournalController {
         this.user = user;
     }
 
-    public record Input(@NotBlank @Size(max=200) String title, @NotBlank String content,
-                        @NotNull LocalDateTime entryDate, Boolean pinned) { }
+    public record Input(@NotBlank @Size(max=200) String title, @Size(max=2000) String content,
+                        @NotNull LocalDateTime entryDate, Boolean pinned,
+                        @Size(max=100) String label, @Size(max=100) String sourceId,
+                        @Size(max=30) String sourceType, Integer progress) { }
 
     @GetMapping
     public List<JournalEntry> all() {
@@ -57,6 +59,12 @@ public class JournalController {
         entry.setContent(body.content());
         entry.setEntryDate(body.entryDate());
         entry.setPinned(Boolean.TRUE.equals(body.pinned()));
+        entry.setLabel(body.label());
+        entry.setSourceId(body.sourceId());
+        entry.setSourceType(body.sourceType());
+        if (body.progress() != null && (body.progress() < 0 || body.progress() > 100))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mức hoàn thành phải từ 0 đến 100");
+        entry.setProgress(body.progress());
         return entries.saveAndFlush(entry);
     }
 

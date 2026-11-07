@@ -33,6 +33,9 @@ import vn.edu.taskmanager.util.VietnameseUtils;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 /**
  * Điều phối các màn hình: Trang chủ (Task/Habit), Nhật ký (UC09), Lịch (UC10), Nhắc việc (UC11), Báo cáo (UC12), Cài đặt.
@@ -69,6 +72,14 @@ public class WorkspaceController {
     private final vn.edu.taskmanager.cloud.CloudRepository habitCloud;
     private boolean habitFetchInProgress;
     private long habitMutationVersion;
+    private final vn.edu.taskmanager.cloud.JournalApi journalApi;
+    private final java.util.concurrent.ExecutorService journalExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private boolean journalFetchInProgress;
+    private boolean journalFetchFinished;
+    private long journalFetchStartedAt;
+    private boolean journalFetchHasSucceeded;
+    private boolean journalPullInProgress;
+    private String journalSyncError = "";
 
     public WorkspaceController(MainActivity activity, Bundle state) {
         this.activity = activity;
@@ -78,6 +89,20 @@ public class WorkspaceController {
         habitCloud = vn.edu.taskmanager.BuildConfig.HABIT_URL.isEmpty() ? null
                 : new vn.edu.taskmanager.cloud.CloudRepository(vn.edu.taskmanager.BuildConfig.TASK_URL,
                 vn.edu.taskmanager.BuildConfig.HABIT_URL, activity);
+        journalApi = vn.edu.taskmanager.BuildConfig.HABIT_URL.isEmpty() ? null
+                : new retrofit2.Retrofit.Builder()
+                .baseUrl(vn.edu.taskmanager.BuildConfig.HABIT_URL)
+                .client(new okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+                        .addInterceptor(chain -> {
+                            String token = vn.edu.taskmanager.auth.Session.token(activity);
+                            okhttp3.Request.Builder request = chain.request().newBuilder();
+                            if (token != null && !token.isEmpty()) request.header("Authorization", "Bearer " + token);
+                            return chain.proceed(request.build());
+                        }).build())
+                .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create()).build()
+                .create(vn.edu.taskmanager.cloud.JournalApi.class);
 
         if (state != null) {
             tab = state.getInt("tab", 0);
@@ -233,6 +258,7 @@ public class WorkspaceController {
 
     public void close() {
         if (habitCloud != null) habitCloud.close();
+        journalExecutor.shutdownNow();
     }
 
     private void initNavigation() {
@@ -510,7 +536,8 @@ public class WorkspaceController {
             String[] parts = entry.date.split("-");
             calendarDay.set(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) - 1, Integer.parseInt(parts[2]));
             calendarMonth.setTime(calendarDay.getTime());
-            selectTab(2);
+            activity.showSelectedDay();
+            selectTab(0);
         }
     }
 
@@ -1316,6 +1343,7 @@ public class WorkspaceController {
         LinearLayout rows = activity.findViewById(R.id.journalEntries);
         if (rows == null) return;
         rows.removeAllViews();
+        if (AccountSession.isLoggedIn(activity)) syncJournalFromServer();
 
         int filterCount = countActiveJournalFilters();
         Button filterBtn = activity.findViewById(R.id.journalFilterBtn);
@@ -1336,7 +1364,14 @@ public class WorkspaceController {
 
         String today = LocalStore.today();
         List<vn.edu.taskmanager.data.DailyHistory.Row> allHistory = history.rows();
-        List<LocalStore.Entry> userNotes = store.entries("note");
+        List<LocalStore.Entry> userNotes = new ArrayList<>();
+        for (LocalStore.Entry note : store.entries("note"))
+            userNotes.add(note);
+        if (journalFetchInProgress && AccountSession.isLoggedIn(activity) && userNotes.isEmpty()) {
+            text(rows, "Đang đồng bộ ghi chú nhật ký…", 14);
+        } else if (!journalSyncError.isEmpty() && userNotes.isEmpty() && AccountSession.isLoggedIn(activity)) {
+            text(rows, "Chưa tải được nhật ký từ máy chủ: " + journalSyncError, 14);
+        }
 
         // Tổng hợp các dòng hiển thị: phân biệt "Ghi chú" (sửa/xóa) và "Hoạt động" (chỉ đọc)
         List<JournalItem> allItems = new ArrayList<>();
@@ -1450,6 +1485,7 @@ public class WorkspaceController {
                         if (n != null) {
                             n.bookmarked = item.bookmarked;
                             store.save(n);
+                            syncJournalNote(n);
                         }
                     } else {
                         for (vn.edu.taskmanager.data.DailyHistory.Row r : history.rows()) {
@@ -1483,7 +1519,9 @@ public class WorkspaceController {
                     new AlertDialog.Builder(activity).setTitle(item.title)
                             .setItems(new String[]{"Xem chi tiết", "Sửa ghi chú", "Xóa ghi chú"}, (dialog, which) -> {
                                 if (which == 0) JournalReaderDialog.create(item.id).show(activity.getSupportFragmentManager(), "journal_reader");
-                                else if (which == 1) EntryEditorDialog.create("note", item.id, item.date).show(activity.getSupportFragmentManager(), "entry_editor");
+                                else if (which == 1) {
+                                    EntryEditorDialog.create("note", item.id, item.date).show(activity.getSupportFragmentManager(), "entry_editor");
+                                }
                                 else confirmDeleteNote(item.id, item.title);
                             }).show();
                 } else {
@@ -1523,10 +1561,212 @@ public class WorkspaceController {
                 .setMessage("Bạn có muốn xóa ghi chú này không?")
                 .setNegativeButton(R.string.cancel, null)
                 .setPositiveButton(R.string.delete, (d, w) -> {
-                    store.delete(id);
-                    refreshJournal();
+                    LocalStore.Entry note = store.find(id);
+                    deleteJournalNote(note);
                 })
                 .show();
+    }
+
+    private void syncJournalFromServer() {
+        if (journalApi == null || !AccountSession.isLoggedIn(activity) || journalPullInProgress
+                || journalFetchHasSucceeded) return;
+        journalPullInProgress = true;
+        journalFetchInProgress = true;
+        journalFetchStartedAt = System.currentTimeMillis();
+        journalFetchFinished = false;
+        long requestStartedAt = journalFetchStartedAt;
+        journalApi.entries().enqueue(new retrofit2.Callback<>() {
+            @Override public void onResponse(retrofit2.Call<List<vn.edu.taskmanager.cloud.JournalApi.JournalEntry>> call,
+                    retrofit2.Response<List<vn.edu.taskmanager.cloud.JournalApi.JournalEntry>> response) {
+                journalFetchInProgress = false;
+                if (requestStartedAt != journalFetchStartedAt) return;
+                if (!response.isSuccessful() || response.body() == null) {
+                    journalPullInProgress = false;
+                    journalSyncError = "HTTP " + response.code();
+                    journalFetchFinished = true;
+                    if (!activity.isFinishing()) refreshJournal();
+                    return;
+                }
+                journalSyncError = "";
+                journalFetchFinished = true;
+                journalFetchHasSucceeded = true;
+                journalPullInProgress = false;
+                Set<String> retainedIds = new HashSet<>();
+                List<LocalStore.Entry> localNotes = store.entries("note");
+                Map<String, LocalStore.Entry> byServerId = new HashMap<>();
+                for (LocalStore.Entry note : localNotes)
+                    if (note.remoteJournalId != null && !note.remoteJournalId.isEmpty())
+                        byServerId.put(note.remoteJournalId, note);
+                for (vn.edu.taskmanager.cloud.JournalApi.JournalEntry remote : response.body()) {
+                    String serverId = String.valueOf(remote.entryId);
+                    LocalStore.Entry note = byServerId.get(serverId);
+                    if (note == null) note = findLegacyJournalMatch(localNotes, remote);
+                    if (note == null) note = new LocalStore.Entry();
+                    String localId = note.id;
+                    String created = note.created;
+                    note.type = "note";
+                    note.remoteJournalId = serverId;
+                    note.id = localId;
+                    note.created = created == null ? journalDate(remote.entryDate) : created;
+                    retainedIds.add(serverId);
+                    note.title = remote.title == null ? "" : remote.title;
+                    note.body = remote.content == null ? "" : remote.content;
+                    note.label = remote.label == null || remote.label.isBlank() ? "Ghi chú" : remote.label;
+                    note.sourceId = remote.sourceId == null ? "" : remote.sourceId;
+                    note.sourceType = remote.sourceType == null ? "" : remote.sourceType;
+                    note.progress = remote.progress == null ? -1 : remote.progress;
+                    note.bookmarked = remote.pinned;
+                    setJournalDateTime(note, remote.entryDate);
+                    store.saveFromSync(note);
+                }
+                // Xóa cache máy chủ đã bị xóa ở tài khoản khác; giữ ghi chú cục bộ chưa đồng bộ.
+                for (LocalStore.Entry note : localNotes)
+                    if (note.remoteJournalId != null && !note.remoteJournalId.isEmpty()
+                            && !retainedIds.contains(note.remoteJournalId))
+                        store.deleteFromSync(note.id);
+                for (LocalStore.Entry note : store.entries("note"))
+                    if ((note.remoteJournalId == null || note.remoteJournalId.isEmpty()) && !isSystemActivity(note))
+                        syncJournalNote(note);
+                if (!activity.isFinishing()) refreshJournal();
+            }
+            @Override public void onFailure(retrofit2.Call<List<vn.edu.taskmanager.cloud.JournalApi.JournalEntry>> call, Throwable error) {
+                if (requestStartedAt != journalFetchStartedAt) return;
+                journalFetchInProgress = false;
+                journalPullInProgress = false;
+                journalSyncError = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                journalFetchFinished = true;
+                if (!activity.isFinishing()) refreshJournal();
+            }
+        });
+    }
+
+    private LocalStore.Entry findLegacyJournalMatch(List<LocalStore.Entry> notes,
+            vn.edu.taskmanager.cloud.JournalApi.JournalEntry remote) {
+        String date = journalDate(remote.entryDate);
+        for (LocalStore.Entry note : notes) {
+            if (note.remoteJournalId != null && !note.remoteJournalId.isEmpty()) continue;
+            if (isSystemActivity(note)) continue;
+            if (Objects.equals(note.title, remote.title) && Objects.equals(note.body, remote.content)
+                    && Objects.equals(note.date, date)) return note;
+        }
+        return null;
+    }
+
+    private boolean isSystemActivity(LocalStore.Entry note) {
+        return ("task".equals(note.sourceType) || "habit".equals(note.sourceType))
+                && ("Đã hoàn thành".equals(note.body) || "Đã bỏ đánh dấu hoàn thành".equals(note.body));
+    }
+
+    private void setJournalDateTime(LocalStore.Entry note, String value) {
+        try {
+            LocalDateTime dateTime = LocalDateTime.parse(value, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            note.date = dateTime.toLocalDate().toString();
+            note.time = dateTime.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+        } catch (DateTimeParseException error) {
+            note.date = value != null && value.length() >= 10 ? value.substring(0, 10) : LocalStore.today();
+            note.time = value != null && value.length() >= 16 ? value.substring(11, 16) : "09:00";
+        }
+    }
+
+    private String journalDate(String value) {
+        return value != null && value.length() >= 10 ? value.substring(0, 10) : LocalStore.today();
+    }
+
+    private Map<String, Object> journalBody(LocalStore.Entry note) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("title", note.title);
+        body.put("content", note.body == null ? "" : note.body);
+        String date = note.date == null || note.date.isBlank() ? LocalStore.today() : note.date;
+        String time = note.time == null || note.time.length() < 5 ? "09:00" : note.time.substring(0, 5);
+        body.put("entryDate", date + "T" + time + ":00");
+        body.put("pinned", note.bookmarked);
+        body.put("label", note.label == null || note.label.isBlank() ? "Ghi chú" : note.label);
+        body.put("sourceId", note.sourceId == null || note.sourceId.isBlank() ? null : note.sourceId);
+        body.put("sourceType", note.sourceType == null || note.sourceType.isBlank() ? null : note.sourceType);
+        body.put("progress", note.progress < 0 ? null : note.progress);
+        return body;
+    }
+
+    public synchronized void syncJournalNote(LocalStore.Entry note) {
+        if (note == null || !"note".equals(note.type)) return;
+        if (journalApi == null || !AccountSession.isLoggedIn(activity)) return;
+        LocalStore.Entry cached = store.find(note.id);
+        if (cached != null && cached.remoteJournalId != null && !cached.remoteJournalId.isEmpty())
+            note.remoteJournalId = cached.remoteJournalId;
+        final boolean update = note.remoteJournalId != null && !note.remoteJournalId.isEmpty();
+        final long id;
+        try { id = update ? Long.parseLong(note.remoteJournalId) : 0L; }
+        catch (NumberFormatException error) { return; }
+        LocalStore.Entry pending = new LocalStore.Entry();
+        pending.id = note.id;
+        pending.remoteJournalId = note.remoteJournalId;
+        pending.sourceId = note.sourceId;
+        pending.sourceType = note.sourceType;
+        pending.type = note.type;
+        pending.title = note.title;
+        pending.body = note.body;
+        pending.date = note.date;
+        pending.time = note.time;
+        pending.label = note.label;
+        pending.bookmarked = note.bookmarked;
+        pending.progress = note.progress;
+        pending.created = note.created;
+        pending.label = note.label;
+        journalExecutor.execute(() -> {
+            try {
+                retrofit2.Response<vn.edu.taskmanager.cloud.JournalApi.JournalEntry> response = (update
+                        ? journalApi.update(id, journalBody(pending)) : journalApi.create(journalBody(pending))).execute();
+                if (!response.isSuccessful() || response.body() == null)
+                    throw new IllegalStateException("HTTP " + response.code());
+                vn.edu.taskmanager.cloud.JournalApi.JournalEntry saved = response.body();
+                pending.remoteJournalId = String.valueOf(saved.entryId);
+                pending.sourceId = saved.sourceId == null ? pending.sourceId : saved.sourceId;
+                pending.sourceType = saved.sourceType == null ? pending.sourceType : saved.sourceType;
+                pending.label = saved.label == null ? "Ghi chú" : saved.label;
+                pending.bookmarked = saved.pinned;
+                pending.progress = saved.progress == null ? pending.progress : saved.progress;
+                setJournalDateTime(pending, saved.entryDate);
+                store.saveFromSync(pending);
+                journalSyncError = "";
+                activity.runOnUiThread(() -> { if (!activity.isFinishing()) refreshJournal(); });
+        } catch (Exception error) {
+                journalSyncError = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                activity.runOnUiThread(() -> {
+                    if (!activity.isFinishing()) Toast.makeText(activity,
+                            "Chưa đồng bộ được ghi chú nhật ký. Nội dung vẫn được giữ trên máy: " + journalSyncError, Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
+    public void deleteJournalNote(LocalStore.Entry note) {
+        if (note == null) return;
+        if (!AccountSession.isLoggedIn(activity) || journalApi == null) {
+            store.delete(note.id);
+            refreshJournal();
+            return;
+        }
+        if (note.remoteJournalId == null || note.remoteJournalId.isEmpty()) {
+            store.delete(note.id);
+            refreshJournal();
+            return;
+        }
+        final long id;
+        try { id = Long.parseLong(note.remoteJournalId); }
+        catch (NumberFormatException error) { store.delete(note.id); refreshJournal(); return; }
+        journalApi.delete(id).enqueue(new retrofit2.Callback<>() {
+            @Override public void onResponse(retrofit2.Call<Void> call, retrofit2.Response<Void> response) {
+                if (response.isSuccessful()) {
+                    store.delete(note.id);
+                    refreshJournal();
+                } else Toast.makeText(activity, "Chưa xóa được ghi chú trên máy chủ (HTTP "
+                        + response.code() + ")", Toast.LENGTH_LONG).show();
+            }
+            @Override public void onFailure(retrofit2.Call<Void> call, Throwable error) {
+                Toast.makeText(activity, "Không kết nối được máy chủ; ghi chú vẫn được giữ: "
+                        + error.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private static class JournalItem {
