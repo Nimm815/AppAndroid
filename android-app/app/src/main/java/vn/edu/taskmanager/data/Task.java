@@ -24,6 +24,11 @@ public class Task {
     // 1: Làm ngay, 2: Lên lịch, 3: Ủy quyền, 4: Loại bỏ.
     @ColumnInfo(defaultValue = "2")
     public int priority = 2;
+    // Liên kết nội bộ tới sự kiện Lịch để đồng bộ chỉnh sửa/xóa hai chiều.
+    @NonNull @ColumnInfo(defaultValue = "''")
+    public String calendarEventId = "";
+    @NonNull @ColumnInfo(defaultValue = "''")
+    public String scheduledTime = "";
 
     public Task(@NonNull String title) {
         this.title = title;

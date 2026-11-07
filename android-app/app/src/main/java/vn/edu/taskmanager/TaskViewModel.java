@@ -110,6 +110,47 @@ public class TaskViewModel extends AndroidViewModel {
     }
     public void delete(long id) { write(() -> dao.delete(id)); }
 
+    public void syncCalendarEvent(String eventId, String title, String date, String time, String note) {
+        executor.execute(() -> {
+            try {
+                LegacyTaskListImporter.importOnce(getApplication(), database);
+                Task task = dao.findByCalendarEventId(eventId);
+                if (task == null) {
+                    task = new Task(title);
+                    task.calendarEventId = eventId;
+                    task.scheduledDate = date;
+                    task.scheduledTime = time;
+                    task.note = note == null ? "" : note;
+                    task.priority = 2;
+                    dao.insert(task);
+                } else {
+                    dao.updateCalendarEvent(eventId, title, date, time, note == null ? "" : note);
+                }
+                syncHistory();
+                vn.edu.taskmanager.sync.WorkspaceSync.changed(getApplication());
+                syncHistory();
+                historyChanged.postValue(System.currentTimeMillis());
+            } catch (RuntimeException error) {
+                android.util.Log.e("TaskViewModel", "KhÃ´ng thá»ƒ lÆ°u cÃ´ng viá»‡c tá»« lá»‹ch", error);
+                writeError.postValue(true);
+            }
+        });
+    }
+
+    public void deleteCalendarEvent(String eventId) {
+        if (eventId != null && !eventId.isEmpty()) executor.execute(() -> {
+            try {
+                dao.deleteByCalendarEventId(eventId);
+                vn.edu.taskmanager.sync.WorkspaceSync.changed(getApplication());
+                syncHistory();
+                historyChanged.postValue(System.currentTimeMillis());
+            } catch (RuntimeException error) {
+                android.util.Log.e("TaskViewModel", "KhÃ´ng thá»ƒ xÃ³a cÃ´ng viá»‡c tá»« lá»‹ch", error);
+                writeError.postValue(true);
+            }
+        });
+    }
+
     public void saveList(String request, String id, String title, boolean creating, java.util.Set<Long> members) {
         String cleaned = title.trim();
         if (cleaned.isEmpty()) throw new IllegalArgumentException("Tên danh sách không được trống");

@@ -26,7 +26,7 @@ public class TaskAdapter extends ListAdapter<Task, TaskAdapter.Holder> {
                 return a.id == b.id;
             }
             @Override public boolean areContentsTheSame(@NonNull Task a, @NonNull Task b) {
-                return a.title.equals(b.title) && a.completed == b.completed && a.scheduledDate.equals(b.scheduledDate) && a.priority == b.priority && a.progress == b.progress && a.note.equals(b.note);
+                return a.title.equals(b.title) && a.completed == b.completed && a.scheduledDate.equals(b.scheduledDate) && a.scheduledTime.equals(b.scheduledTime) && a.priority == b.priority && a.progress == b.progress && a.note.equals(b.note);
             }
         });
         this.listener = listener;
@@ -45,6 +45,7 @@ public class TaskAdapter extends ListAdapter<Task, TaskAdapter.Holder> {
         holder.date.setText((TaskSchedule.overdue(task, vn.edu.taskmanager.data.LocalStore.today()) ? "Quá hạn · " : "")
                 + MainActivity.displayDate(task.scheduledDate)
                 + (task.scheduledDate.isEmpty() ? "" : " · " + TaskPriority.label(task.priority))
+                + (task.scheduledTime.isEmpty() ? "" : " · " + task.scheduledTime)
                 + " · " + (task.completed ? 100 : task.progress) + "%");
         holder.title.setPaintFlags(task.completed
                 ? holder.title.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG

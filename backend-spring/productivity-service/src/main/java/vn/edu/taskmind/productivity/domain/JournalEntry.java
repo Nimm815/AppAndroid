@@ -26,6 +26,18 @@ public class JournalEntry {
     @Column(name = "IsPinned", nullable = false, columnDefinition = "tinyint(1)")
     private Boolean pinned = false;
 
+    @Column(name = "Label", length = 100)
+    private String label;
+
+    @Column(name = "SourceID", length = 100)
+    private String sourceId;
+
+    @Column(name = "SourceType", length = 30)
+    private String sourceType;
+
+    @Column(name = "Progress")
+    private Integer progress;
+
     @Column(name = "CreatedAt", nullable = false, columnDefinition = "datetime")
     private LocalDateTime createdAt;
 
@@ -56,6 +68,14 @@ public class JournalEntry {
     public void setEntryDate(LocalDateTime entryDate) { this.entryDate = entryDate; }
     public Boolean getPinned() { return pinned; }
     public void setPinned(Boolean value) { pinned = value; }
+    public String getLabel() { return label; }
+    public void setLabel(String value) { label = value; }
+    public String getSourceId() { return sourceId; }
+    public void setSourceId(String value) { sourceId = value; }
+    public String getSourceType() { return sourceType; }
+    public void setSourceType(String value) { sourceType = value; }
+    public Integer getProgress() { return progress; }
+    public void setProgress(Integer value) { progress = value; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

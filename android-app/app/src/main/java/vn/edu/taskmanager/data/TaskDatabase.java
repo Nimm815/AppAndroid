@@ -5,7 +5,7 @@ import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
-@Database(entities = {Task.class, TaskList.class, TaskListMember.class, TaskListImportState.class}, version = 6, exportSchema = true)
+@Database(entities = {Task.class, TaskList.class, TaskListMember.class, TaskListImportState.class}, version = 7, exportSchema = true)
 public abstract class TaskDatabase extends RoomDatabase {
     public abstract TaskDao taskDao();
     public abstract TaskListDao taskListDao();
@@ -54,13 +54,21 @@ public abstract class TaskDatabase extends RoomDatabase {
                 }
             };
 
+    public static final androidx.room.migration.Migration MIGRATION_6_7 =
+            new androidx.room.migration.Migration(6, 7) {
+                @Override public void migrate(@androidx.annotation.NonNull androidx.sqlite.db.SupportSQLiteDatabase db) {
+                    db.execSQL("ALTER TABLE tasks ADD COLUMN calendarEventId TEXT NOT NULL DEFAULT ''");
+                    db.execSQL("ALTER TABLE tasks ADD COLUMN scheduledTime TEXT NOT NULL DEFAULT ''");
+                }
+            };
+
     private static final java.util.Map<String,TaskDatabase> databases = new java.util.HashMap<>();
     public static synchronized TaskDatabase getInstance(Context context) {
         String name=vn.edu.taskmanager.auth.Session.storage(context,"personal_tasks.db");
         TaskDatabase database=databases.get(name);
         if(database==null){
             database=Room.databaseBuilder(context.getApplicationContext(),TaskDatabase.class,name)
-                .addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6).build();
+                .addMigrations(MIGRATION_1_2,MIGRATION_2_3,MIGRATION_3_4,MIGRATION_4_5,MIGRATION_5_6,MIGRATION_6_7).build();
             databases.put(name,database);
         }
         return database;

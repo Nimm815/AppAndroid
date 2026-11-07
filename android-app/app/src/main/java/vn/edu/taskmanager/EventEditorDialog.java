@@ -229,6 +229,9 @@ public class EventEditorDialog extends DialogFragment {
             }
 
             store.save(entry);
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).syncCalendarEvent(entry);
+            }
 
             // Xử lý lời nhắc đi kèm (UC11)
             handleReminderForEvent(requireContext(), entry, spinnerReminder.getSelectedItemPosition(), isAllDay, startTime, selectedDate);
@@ -345,6 +348,7 @@ public class EventEditorDialog extends DialogFragment {
                     }
                     store.delete(entry.id);
                     if (getActivity() instanceof MainActivity) {
+                        ((MainActivity) getActivity()).deleteCalendarEvent(entry.id);
                         ((MainActivity) getActivity()).refreshWorkspace();
                     }
                 })

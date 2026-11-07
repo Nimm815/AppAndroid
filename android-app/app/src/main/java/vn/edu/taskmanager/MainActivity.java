@@ -250,7 +250,17 @@ public class MainActivity extends AppCompatActivity implements TaskAdapter.Liste
         if (workspace != null) workspace.close();
         super.onDestroy();
     }
-    public void entrySaved(LocalStore.Entry entry) { workspace.entrySaved(entry); }
+    public void entrySaved(LocalStore.Entry entry) {
+        workspace.entrySaved(entry);
+        if ("note".equals(entry.type)) workspace.syncJournalNote(entry);
+    }
+    public void syncJournalNote(LocalStore.Entry entry) { workspace.syncJournalNote(entry); }
+    public void deleteJournalNote(LocalStore.Entry entry) { workspace.deleteJournalNote(entry); }
+    public void syncCalendarEvent(LocalStore.Entry entry) {
+        String time = entry.progress == 1 ? "" : entry.time;
+        model.syncCalendarEvent(entry.id, entry.title, entry.date, time, entry.body);
+    }
+    public void deleteCalendarEvent(String eventId) { model.deleteCalendarEvent(eventId); }
     public void taskSaved(String date) {
         if (!listId.isEmpty()) { workspace.selectTab(0); return; }
         workspace.taskSaved(date);

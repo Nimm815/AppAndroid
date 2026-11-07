@@ -28,15 +28,17 @@ Nếu có điện thoại được cấp quyền ADB qua USB, script tìm `adb.e
 
 Nếu service không khởi động, script báo trạng thái và đường dẫn `stdout`/`stderr` trong `backend-spring\build\services`. AI Service không được khởi động.
 
-Hồ sơ tài khoản thuộc Auth Service. Theo các cột schema đã nhận, `users` chỉ lưu tên, email và thông tin xác thực; không có số điện thoại, ngày sinh, giới tính hoặc avatar.
+Hồ sơ tài khoản thuộc Auth Service. Để lưu số điện thoại, ngày sinh và giới tính, kiểm tra schema rồi chạy một lần `database/02_add_user_profile_fields.sql` trên `taskmind_auth_db`. Script này bổ sung ba cột vào `users`; backend không tự chạy migration. Avatar hiện vẫn lưu cục bộ trên thiết bị.
 
 Android có luồng đăng ký/đăng nhập trong **Cài đặt → Tài khoản**. Auth Service cấp bearer token; Task và Productivity xác thực token qua Auth Service để lấy đúng UserID. Các màn hình offline hiện giữ dữ liệu cục bộ; backend không còn endpoint snapshot sync.
 
 API hồ sơ yêu cầu `Authorization: Bearer <token>` hợp lệ:
 
 - `GET /api/users/me`: đọc hồ sơ người dùng từ phiên đã xác thực.
-- `PUT /api/users/me`: cập nhật tên và email; schema hiện tại không có cột điện thoại/ngày sinh/giới tính nên gửi các giá trị đó sẽ nhận `422`.
+- `PUT /api/users/me`: cập nhật tên, email, số điện thoại, ngày sinh và giới tính; cần chạy migration hồ sơ ở trên trước khi khởi động phiên bản Auth Service mới.
 - Avatar chưa có API vì schema hiện tại không có cột/lưu trữ ảnh.
+
+API nhật ký `/api/journal-entries` được Android dùng để đồng bộ ghi chú cá nhân. Trước lần chạy Productivity Service có thay đổi metadata, chạy một lần `database/03_add_journal_metadata.sql` trên MySQL Workbench, đúng schema `taskmind_productivity_db`. Migration chỉ thêm cột nullable `Label`, `SourceID`, `SourceType`, `Progress` và có thể chạy lại an toàn. Dòng hoạt động tổng hợp vẫn được dựng từ dữ liệu task/thói quen; chỉ ghi chú do người dùng tạo được lưu vào `journalentries`.
 
 API đăng nhập và đăng ký (Auth Service, 8081):
 

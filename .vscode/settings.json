@@ -1,4 +1,8 @@
 {
     "java.configuration.updateBuildConfiguration": "interactive",
-    "java.compile.nullAnalysis.mode": "automatic"
+    "java.compile.nullAnalysis.mode": "automatic",
+    "files.associations": {
+        "**/backend-spring/database/*.sql": "mysql"
+    },
+    "mssql.sqltools.useNodeRuntime": false
 }
